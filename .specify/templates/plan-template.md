@@ -18,7 +18,7 @@
    → Update Progress Tracking: Initial Constitution Check
 5. Execute Phase 0 → research.md
    → If NEEDS CLARIFICATION remain: ERROR "Resolve unknowns"
-6. Execute Phase 1 → contracts, data-model.md, quickstart.md, agent-specific template file (e.g., `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md` for GitHub Copilot, `GEMINI.md` for Gemini CLI, `QWEN.md` for Qwen Code or `AGENTS.md` for opencode).
+6. Execute Phase 1 → contracts, data-model.md, quickstart.md, agent-specific template file (e.g., `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md` for GitHub Copilot, `GEMINI.md` for Gemini CLI, `QWEN.md` for Qwen Code, or `AGENTS.md` for all other agents).
 7. Re-evaluate Constitution Check section
    → If new violations: Refactor design, return to Phase 1
    → Update Progress Tracking: Post-Design Constitution Check
@@ -47,30 +47,7 @@
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-**Simplicity First**: Does this feature use the simplest approach? Any complex patterns must be justified.
-- [ ] Solution starts with simplest working approach
-- [ ] Complex patterns documented with rationale
-- [ ] No premature optimization or over-engineering
-
-**Single File Preference**: Are we minimizing file count without sacrificing clarity?
-- [ ] Related functionality kept together
-- [ ] File splits justified by clear organizational benefits
-- [ ] No excessive hierarchies or unnecessary modules
-
-**Comment-Driven Development**: Will the code be educational for newcomers?
-- [ ] Non-trivial logic includes WHY comments
-- [ ] Business decisions explained in accessible language
-- [ ] Complex patterns include educational explanations
-
-**Newcomer-Friendly Architecture**: Is the design approachable for junior developers?
-- [ ] Clear, descriptive naming without jargon
-- [ ] Architecture patterns explained when advanced
-- [ ] No implicit conventions or domain-specific abstractions
-
-**Test-Driven Clarity**: Do tests serve as living documentation?
-- [ ] Test names describe scenarios in plain language
-- [ ] Tests demonstrate complete user workflows
-- [ ] Test code follows same simplicity principles
+[Gates determined based on constitution file]
 
 ## Project Structure
 
@@ -239,4 +216,4 @@ directories captured above]
 - [ ] Complexity deviations documented
 
 ---
-*Based on Constitution v1.0.0 - See `.specify/memory/constitution.md`*
+*Based on Constitution v2.1.1 - See `/memory/constitution.md`*

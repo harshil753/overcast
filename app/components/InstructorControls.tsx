@@ -1,409 +1,268 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { useDaily } from '@daily-co/daily-react';
-import { DailyParticipant } from '@daily-co/daily-js';
-import { AppUser, MuteParticipantRequest, MuteAllParticipantsRequest, CreateBreakoutRoomRequest } from '@/lib/types';
-
-interface InstructorControlsProps {
-  /** Current instructor user information */
-  instructor: AppUser;
-  /** Current classroom ID (1-6) */
-  classroomId: string;
-  /** Whether the instructor controls are enabled */
-  enabled?: boolean;
-}
+import { useParticipantIds, useParticipantProperty } from '@daily-co/daily-react';
+import { API_ENDPOINTS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '@/lib/constants';
 
 /**
  * InstructorControls Component
  * 
- * Provides instructor-specific controls for managing classroom participants:
- * - Individual participant muting/unmuting
- * - Mute all participants functionality
- * - Breakout room creation and management
+ * Provides instructor-only controls for classroom management.
+ * WHY: Instructors need controls to manage participants (mute/unmute)
  * 
- * Only visible and functional when user has instructor role.
- * Uses Daily React hooks for real-time participant management.
+ * Features:
+ * - Displays list of all participants (excluding instructor)
+ * - Mute/unmute buttons for each participant
+ * - Audio/video state indicators
+ * - Error handling for failed mute operations
+ * 
+ * Props:
+ * - instructorSessionId: Session ID of the instructor (for API authorization)
+ * - classroomId: Current classroom ID
+ * - onMuteParticipant?: Optional callback when mute action occurs
  */
-export default function InstructorControls({ 
-  instructor, 
-  classroomId, 
-  enabled = true 
-}: InstructorControlsProps) {
-  // Daily React hooks for participant management
-  const daily = useDaily();
-  
-  // Get participants from Daily call object (fallback approach)
-  const [participants, setParticipants] = useState<DailyParticipant[]>([]);
-  
-  React.useEffect(() => {
-    if (daily) {
-      const updateParticipants = () => {
-        const allParticipants = daily.participants();
-        setParticipants(Object.values(allParticipants));
-      };
-      
-      updateParticipants();
-      
-      // Listen for participant changes
-      daily.on('participant-joined', updateParticipants);
-      daily.on('participant-left', updateParticipants);
-      daily.on('participant-updated', updateParticipants);
-      
-      return () => {
-        daily.off('participant-joined', updateParticipants);
-        daily.off('participant-left', updateParticipants);
-        daily.off('participant-updated', updateParticipants);
-      };
-    }
-  }, [daily]);
-  
-  // Component state
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showBreakoutModal, setShowBreakoutModal] = useState(false);
-  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
-  const [breakoutRoomName, setBreakoutRoomName] = useState('');
+interface InstructorControlsProps {
+  instructorSessionId: string;
+  classroomId: string;
+  onMuteParticipant?: (sessionId: string, muted: boolean) => void;
+}
 
-  // Filter participants by role (exclude current instructor from student list)
-  const students = participants.filter((p: DailyParticipant) => 
-    p.user_name !== instructor.name && 
-    !p.permissions?.hasPresence // Simple role detection - instructors typically have presence permissions
-  );
+export default function InstructorControls({
+  instructorSessionId,
+  classroomId,
+  onMuteParticipant
+}: InstructorControlsProps) {
+  // Get participant IDs from Daily.co hook
+  const participantIds = useParticipantIds();
   
-  const otherInstructors = participants.filter((p: DailyParticipant) => 
-    p.user_name !== instructor.name && 
-    p.permissions?.hasPresence
+  // Local state for UI feedback
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  /**
+   * Filters out the local instructor from the participant list.
+   * WHY: Instructor shouldn't see mute control for themselves
+   */
+  const studentParticipantIds = participantIds.filter(
+    (id: string) => id !== 'local' // Filter out local participant
   );
 
   /**
-   * Mute or unmute a specific participant
-   * Calls the participants API to update participant audio state
+   * Handles mute/unmute action for a participant.
+   * WHY: Makes API call to mute participant and provides user feedback
    */
   const handleMuteParticipant = useCallback(async (
-    participant: DailyParticipant, 
-    muted: boolean
+    participantSessionId: string,
+    currentMutedState: boolean
   ) => {
-    if (!enabled || isLoading) return;
+    const newMutedState = !currentMutedState;
     
-    setIsLoading(true);
-    setError(null);
+    // Set loading state for this participant
+    setLoadingStates(prev => ({
+      ...prev,
+      [participantSessionId]: true
+    }));
     
+    // Clear previous messages
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
     try {
-      const request: MuteParticipantRequest = {
-        instructorSessionId: instructor.sessionId,
-        muted,
-        classroomId
-      };
-
-      const response = await fetch(`/api/participants/${participant.session_id}/mute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update participant mute state');
-      }
-
-      // Also update local Daily state for immediate feedback
-      if (daily) {
-        await daily.updateParticipant(participant.session_id, {
-          setAudio: !muted
-        });
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setError(`Failed to ${muted ? 'mute' : 'unmute'} participant: ${errorMessage}`);
-      console.error('Mute participant error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [instructor.sessionId, classroomId, enabled, isLoading, daily]);
-
-  /**
-   * Mute or unmute all participants in the classroom
-   * Excludes other instructors by default
-   */
-  const handleMuteAll = useCallback(async (muted: boolean) => {
-    if (!enabled || isLoading) return;
-    
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const request: MuteAllParticipantsRequest = {
-        instructorSessionId: instructor.sessionId,
-        classroomId,
-        muted,
-        excludeInstructors: true
-      };
-
-      const response = await fetch('/api/participants/mute-all', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update all participants');
-      }
-
-      const result = await response.json();
-      
-      // Update local Daily state for all students
-      if (daily) {
-        for (const student of students) {
-          await daily.updateParticipant(student.session_id, {
-            setAudio: !muted
-          });
+      const response = await fetch(
+        API_ENDPOINTS.PARTICIPANTS_MUTE(participantSessionId),
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            muted: newMutedState,
+            instructorSessionId: instructorSessionId,
+          }),
         }
-      }
-
-      console.log(`${muted ? 'Muted' : 'Unmuted'} ${result.affectedCount} participants`);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setError(`Failed to ${muted ? 'mute' : 'unmute'} all participants: ${errorMessage}`);
-      console.error('Mute all error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [instructor.sessionId, classroomId, enabled, isLoading, daily, students]);
-
-  /**
-   * Create a breakout room with selected participants
-   */
-  const handleCreateBreakout = useCallback(async () => {
-    if (!enabled || isLoading || selectedParticipants.length === 0 || !breakoutRoomName.trim()) {
-      return;
-    }
-    
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const request: CreateBreakoutRoomRequest = {
-        instructorSessionId: instructor.sessionId,
-        parentClassroomId: classroomId,
-        name: breakoutRoomName.trim(),
-        participantIds: selectedParticipants,
-        maxDuration: 30 // Default 30 minutes
-      };
-
-      const response = await fetch('/api/breakout-rooms', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-      });
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create breakout room');
+        throw new Error(errorData.error || ERROR_MESSAGES.MUTE_FAILED);
       }
 
       const result = await response.json();
-      console.log('Breakout room created:', result.breakoutRoom);
       
-      // Reset form and close modal
-      setBreakoutRoomName('');
-      setSelectedParticipants([]);
-      setShowBreakoutModal(false);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setError(`Failed to create breakout room: ${errorMessage}`);
-      console.error('Create breakout error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [instructor.sessionId, classroomId, enabled, isLoading, selectedParticipants, breakoutRoomName]);
+      if (!result.success) {
+        throw new Error(result.error || ERROR_MESSAGES.MUTE_FAILED);
+      }
 
-  // Don't render if user is not an instructor
-  if (instructor.role !== 'instructor') {
-    return null;
-  }
+      // Show success message
+      setSuccessMessage(
+        newMutedState 
+          ? SUCCESS_MESSAGES.PARTICIPANT_MUTED 
+          : SUCCESS_MESSAGES.PARTICIPANT_UNMUTED
+      );
+
+      // Call optional callback
+      if (onMuteParticipant) {
+        onMuteParticipant(participantSessionId, newMutedState);
+      }
+
+    } catch (error) {
+      console.error('Failed to mute participant:', error);
+      setErrorMessage(
+        error instanceof Error 
+          ? error.message 
+          : ERROR_MESSAGES.MUTE_FAILED
+      );
+    } finally {
+      // Clear loading state
+      setLoadingStates(prev => ({
+        ...prev,
+        [participantSessionId]: false
+      }));
+    }
+  }, [instructorSessionId, onMuteParticipant]);
+
+  // Auto-clear messages after 3 seconds
+  React.useEffect(() => {
+    if (errorMessage || successMessage) {
+      const timer = setTimeout(() => {
+        setErrorMessage(null);
+        setSuccessMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage, successMessage]);
 
   return (
-    <div className="bg-gray-900 border border-teal-500/30 rounded-lg p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-teal-400">
+    <div className="instructor-controls">
+      {/* Header */}
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold text-white mb-2">
           Instructor Controls
         </h3>
-        {isLoading && (
-          <div className="text-sm text-gray-400">Processing...</div>
+        <p className="text-sm text-gray-400">
+          Manage participants in this classroom
+        </p>
+      </div>
+
+      {/* Messages */}
+      {errorMessage && (
+        <div className="mb-4 p-3 bg-red-900/20 border border-red-500 rounded-lg">
+          <p className="text-red-400 text-sm">{errorMessage}</p>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="mb-4 p-3 bg-green-900/20 border border-green-500 rounded-lg">
+          <p className="text-green-400 text-sm">{successMessage}</p>
+        </div>
+      )}
+
+      {/* Participant List */}
+      <div className="space-y-3">
+        {studentParticipantIds.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-400 text-sm">No participants in classroom</p>
+          </div>
+        ) : (
+          studentParticipantIds.map((participantId: string) => {
+            const isLoading = loadingStates[participantId] || false;
+
+            return (
+              <ParticipantRow
+                key={participantId}
+                participantId={participantId}
+                isLoading={isLoading}
+                onMute={handleMuteParticipant}
+              />
+            );
+          })
         )}
       </div>
+    </div>
+  );
+}
 
-      {/* Error Display */}
-      {error && (
-        <div className="bg-red-900/20 border border-red-500/30 rounded p-3 text-red-400 text-sm">
-          {error}
-          <button 
-            onClick={() => setError(null)}
-            className="ml-2 text-red-300 hover:text-red-100"
-          >
-            ×
-          </button>
+/**
+ * Individual participant row component
+ * WHY: Separates participant rendering logic for better maintainability
+ */
+interface ParticipantRowProps {
+  participantId: string;
+  isLoading: boolean;
+  onMute: (sessionId: string, currentMutedState: boolean) => void;
+}
+
+function ParticipantRow({ participantId, isLoading, onMute }: ParticipantRowProps) {
+  // Get participant properties using Daily React hooks
+  const [userName] = useParticipantProperty(participantId, 'user_name');
+  const [audioState] = useParticipantProperty(participantId, 'tracks.audio.state');
+  const [videoState] = useParticipantProperty(participantId, 'tracks.video.state');
+
+  const isMuted = audioState === 'off';
+  const isVideoOff = videoState === 'off';
+
+  return (
+    <div className="flex items-center justify-between p-3 bg-gray-900/50 border border-gray-700 rounded-lg hover:border-teal-500/50 transition-colors">
+      {/* Participant Info */}
+      <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2">
+          {/* Audio indicator */}
+          <div
+            data-testid="audio-indicator"
+            className={`w-3 h-3 rounded-full ${
+              isMuted ? 'bg-red-500' : 'bg-green-500'
+            }`}
+            title={isMuted ? 'Muted' : 'Unmuted'}
+          />
+          
+          {/* Video indicator */}
+          <div
+            data-testid="video-indicator"
+            className={`w-3 h-3 rounded-full ${
+              isVideoOff ? 'bg-red-500' : 'bg-green-500'
+            }`}
+            title={isVideoOff ? 'Video Off' : 'Video On'}
+          />
         </div>
-      )}
-
-      {/* Participant Count Summary */}
-      <div className="text-sm text-gray-300 space-y-1">
-        <div>Students: {students.length}</div>
-        <div>Other Instructors: {otherInstructors.length}</div>
-        <div>Total Participants: {participants.length}</div>
+        
+        <div>
+          <p className="text-white font-medium text-sm">
+            {userName || 'Unknown User'}
+          </p>
+          <p className="text-gray-400 text-xs">
+            {isMuted ? 'Muted' : 'Unmuted'} • {isVideoOff ? 'Video Off' : 'Video On'}
+          </p>
+        </div>
       </div>
 
-      {/* Mute All Controls */}
-      <div className="space-y-2">
-        <h4 className="text-md font-medium text-gray-200">Audio Controls</h4>
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleMuteAll(true)}
-            disabled={!enabled || isLoading || students.length === 0}
-            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:text-gray-400 
-                     text-white px-3 py-2 rounded text-sm font-medium transition-colors"
-          >
-            Mute All Students
-          </button>
-          <button
-            onClick={() => handleMuteAll(false)}
-            disabled={!enabled || isLoading || students.length === 0}
-            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-400 
-                     text-white px-3 py-2 rounded text-sm font-medium transition-colors"
-          >
-            Unmute All Students
-          </button>
-        </div>
-      </div>
-
-      {/* Individual Participant Controls */}
-      {students.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-md font-medium text-gray-200">Individual Controls</h4>
-          <div className="max-h-32 overflow-y-auto space-y-1">
-            {students.map((participant: DailyParticipant) => (
-              <div key={participant.session_id} className="flex items-center justify-between bg-gray-800 rounded p-2">
-                <span className="text-sm text-gray-300 truncate flex-1">
-                  {participant.user_name || 'Anonymous'}
-                </span>
-                <div className="flex gap-1 ml-2">
-                  <button
-                    onClick={() => handleMuteParticipant(participant, true)}
-                    disabled={!enabled || isLoading || !participant.audio}
-                    className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:text-gray-400 
-                             text-white px-2 py-1 rounded text-xs transition-colors"
-                  >
-                    Mute
-                  </button>
-                  <button
-                    onClick={() => handleMuteParticipant(participant, false)}
-                    disabled={!enabled || isLoading || participant.audio}
-                    className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:text-gray-400 
-                             text-white px-2 py-1 rounded text-xs transition-colors"
-                  >
-                    Unmute
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Breakout Room Controls */}
-      <div className="space-y-2">
-        <h4 className="text-md font-medium text-gray-200">Breakout Rooms</h4>
-        <button
-          onClick={() => setShowBreakoutModal(true)}
-          disabled={!enabled || isLoading || students.length < 2}
-          className="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-gray-700 disabled:text-gray-400 
-                   text-white px-3 py-2 rounded text-sm font-medium transition-colors"
-        >
-          Create Breakout Room
-        </button>
-      </div>
-
-      {/* Breakout Room Modal */}
-      {showBreakoutModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-teal-500/30 rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-teal-400 mb-4">Create Breakout Room</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Room Name
-                </label>
-                <input
-                  type="text"
-                  value={breakoutRoomName}
-                  onChange={(e) => setBreakoutRoomName(e.target.value)}
-                  placeholder="Discussion Group A"
-                  className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white 
-                           focus:border-teal-500 focus:outline-none"
-                  maxLength={50}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Select Participants ({selectedParticipants.length} selected)
-                </label>
-                <div className="max-h-32 overflow-y-auto space-y-1 border border-gray-600 rounded p-2">
-                  {students.map((participant: DailyParticipant) => (
-                    <label key={participant.session_id} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={selectedParticipants.includes(participant.session_id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedParticipants(prev => [...prev, participant.session_id]);
-                          } else {
-                            setSelectedParticipants(prev => prev.filter(id => id !== participant.session_id));
-                          }
-                        }}
-                        className="rounded border-gray-600 text-teal-600 focus:ring-teal-500"
-                      />
-                      <span className="text-sm text-gray-300">
-                        {participant.user_name || 'Anonymous'}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => {
-                    setShowBreakoutModal(false);
-                    setBreakoutRoomName('');
-                    setSelectedParticipants([]);
-                  }}
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded text-sm font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateBreakout}
-                  disabled={!breakoutRoomName.trim() || selectedParticipants.length === 0 || isLoading}
-                  className="flex-1 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-700 disabled:text-gray-400 
-                           text-white px-3 py-2 rounded text-sm font-medium transition-colors"
-                >
-                  Create Room
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Mute/Unmute Button */}
+      <button
+        data-testid={`mute-button-${participantId}`}
+        onClick={() => onMute(participantId, isMuted)}
+        disabled={isLoading}
+        className={`
+          px-4 py-2 rounded-lg font-medium text-sm transition-colors
+          ${isMuted 
+            ? 'bg-teal-600 hover:bg-teal-700 text-white' 
+            : 'bg-orange-600 hover:bg-orange-700 text-white'
+          }
+          ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+        `}
+        title={isMuted ? 'Unmute participant' : 'Mute participant'}
+      >
+        {isLoading ? (
+          <span className="flex items-center space-x-2">
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <span>Loading...</span>
+          </span>
+        ) : (
+          <span className="flex items-center space-x-2">
+            <span>{isMuted ? '🔊' : '🔇'}</span>
+            <span>{isMuted ? 'Unmute' : 'Mute'}</span>
+          </span>
+        )}
+      </button>
     </div>
   );
 }

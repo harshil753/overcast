@@ -3,7 +3,9 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, use } from 'react';
 import Classroom from '@/app/components/Classroom';
-import { AppUser } from '@/lib/types';
+import { UserSession, isValidClassroomId } from '@/lib/types';
+import { getClassroomById } from '@/lib/daily-config';
+import { ERROR_MESSAGES } from '@/lib/constants';
 
 /**
  * Loading fallback component for classroom page
@@ -22,6 +24,31 @@ function LoadingClassroom() {
 }
 
 /**
+ * Error component for invalid classroom
+ */
+function InvalidClassroom({ classroomId }: { classroomId: string }) {
+  const router = useRouter();
+  
+  return (
+    <div className="h-screen bg-black flex items-center justify-center">
+      <div className="text-center max-w-md mx-auto p-6">
+        <div className="text-red-500 text-6xl mb-4">⚠️</div>
+        <h1 className="text-2xl font-bold text-white mb-4">Classroom Not Found</h1>
+        <p className="text-gray-400 mb-6">
+          The classroom "{classroomId}" does not exist. Please select a valid classroom from the lobby.
+        </p>
+        <button
+          onClick={() => router.push('/lobby')}
+          className="px-6 py-3 bg-teal-500 hover:bg-teal-600 text-black font-medium rounded-lg transition-colors"
+        >
+          Return to Lobby
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Classroom page content component
  * Separated to allow Suspense boundary for useSearchParams()
  */
@@ -34,6 +61,17 @@ function ClassroomPageContent({ params }: { params: Promise<{ id: string }> }) {
   // React.use() suspends the component until the params are available.
   const { id } = use(params);
 
+  // Validate classroom ID
+  if (!isValidClassroomId(id)) {
+    return <InvalidClassroom classroomId={id} />;
+  }
+
+  // Get classroom configuration
+  const classroomConfig = getClassroomById(id);
+  if (!classroomConfig) {
+    return <InvalidClassroom classroomId={id} />;
+  }
+
   // Extract user data from URL parameters
   // WHY: We pass user data via URL params from the lobby page.
   // This approach works for local development without requiring authentication.
@@ -42,19 +80,18 @@ function ClassroomPageContent({ params }: { params: Promise<{ id: string }> }) {
   const userRole = (searchParams.get('role') || 'student') as 'student' | 'instructor';
   const sessionId = searchParams.get('sessionId') || crypto.randomUUID();
 
-  // Construct user object
-  const user: AppUser = {
+  // Construct user session object
+  const userSession: UserSession = {
     name: userName,
     role: userRole,
     sessionId: sessionId,
-    currentClassroom: id,
-    joinedAt: new Date()
+    currentClassroom: id
   };
 
   /**
    * Handle leaving the classroom
    * 
-   * WHY: When a user clicks "Leave Classroom", we need to:
+   * WHY: When a user clicks "Return to Main Lobby", we need to:
    * 1. Disconnect from Daily.co (handled by Classroom component)
    * 2. Navigate back to the main lobby
    * 
@@ -62,15 +99,39 @@ function ClassroomPageContent({ params }: { params: Promise<{ id: string }> }) {
    * before calling this handler.
    */
   const handleLeaveClassroom = () => {
-    router.push('/');
+    router.push('/lobby');
   };
 
   return (
-    <Classroom 
-      classroomId={id}
-      user={user}
-      onLeave={handleLeaveClassroom}
-    />
+    <div className="h-screen bg-black">
+      {/* Classroom Header */}
+      <div className="bg-gray-900 border-b border-gray-700 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-white">
+              {classroomConfig.name}: Class Session
+            </h1>
+            <p className="text-sm text-gray-400">
+              Classroom ID: {id} • Role: {userRole}
+            </p>
+          </div>
+          
+          <button
+            onClick={handleLeaveClassroom}
+            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-black font-medium rounded-lg transition-colors"
+          >
+            Return to Main Lobby
+          </button>
+        </div>
+      </div>
+
+      {/* Classroom Component */}
+      <Classroom 
+        classroomId={id}
+        userSession={userSession}
+        onLeave={handleLeaveClassroom}
+      />
+    </div>
   );
 }
 

@@ -4,9 +4,10 @@ import { test, expect } from '@playwright/test';
  * Integration Test: Classroom Capacity Limits
  * 
  * Tests the system's handling of classroom capacity limits and edge cases.
- * Validates proper enforcement of 50-participant limit per classroom.
+ * Validates proper enforcement of 10-participant limit per classroom.
  * 
  * Based on Quickstart Workflow 3: Capacity and Error Handling
+ * Validates: Capacity enforcement (FR-016, FR-018)
  */
 
 test.describe('Classroom Capacity Limits Integration Tests', () => {
@@ -15,7 +16,7 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
     await page.goto('http://localhost:3000');
   });
 
-  test('should enforce 50-participant limit per classroom', async ({ page }) => {
+  test('should enforce 10-participant limit per classroom', async ({ page }) => {
     // Mock API to simulate classroom at capacity
     await page.route('**/api/rooms/1', async route => {
       await route.fulfill({
@@ -24,8 +25,8 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
         body: JSON.stringify({
           id: '1',
           name: 'Cohort 1',
-          participantCount: 50,
-          maxCapacity: 50,
+          participantCount: 10,
+          maxCapacity: 10,
           isActive: true
         })
       });
@@ -37,7 +38,7 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
         contentType: 'application/json',
         body: JSON.stringify({ 
           error: 'Classroom full',
-          message: 'This classroom has reached its maximum capacity of 50 participants'
+          message: 'This classroom has reached its maximum capacity of 10 participants'
         })
       });
     });
@@ -49,7 +50,7 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
 
     // Verify "Classroom full" message is displayed
     await expect(page.locator('[data-testid="error-message"]')).toContainText('Classroom full');
-    await expect(page.locator('[data-testid="error-message"]')).toContainText('maximum capacity of 50 participants');
+    await expect(page.locator('[data-testid="error-message"]')).toContainText('maximum capacity of 10 participants');
 
     // Verify user cannot join when at capacity
     await expect(page).toHaveURL('http://localhost:3000'); // Should stay on lobby
@@ -67,8 +68,8 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
         body: JSON.stringify({
           id: '2',
           name: 'Cohort 2',
-          participantCount: 25,
-          maxCapacity: 50,
+          participantCount: 5,
+          maxCapacity: 10,
           isActive: true
         })
       });
@@ -99,12 +100,12 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
   test('should handle capacity checks for all 6 classrooms independently', async ({ page }) => {
     // Mock different capacity states for each classroom
     const classroomStates = [
-      { id: '1', participantCount: 50, canJoin: false }, // Full
-      { id: '2', participantCount: 30, canJoin: true },  // Available
-      { id: '3', participantCount: 49, canJoin: true },  // Almost full
-      { id: '4', participantCount: 50, canJoin: false }, // Full
+      { id: '1', participantCount: 10, canJoin: false }, // Full
+      { id: '2', participantCount: 5, canJoin: true },  // Available
+      { id: '3', participantCount: 9, canJoin: true },   // Almost full
+      { id: '4', participantCount: 10, canJoin: false }, // Full
       { id: '5', participantCount: 0, canJoin: true },   // Empty
-      { id: '6', participantCount: 25, canJoin: true }   // Half full
+      { id: '6', participantCount: 3, canJoin: true }     // Half full
     ];
 
     // Set up mocks for each classroom
@@ -117,7 +118,7 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
             id: classroom.id,
             name: `Cohort ${classroom.id}`,
             participantCount: classroom.participantCount,
-            maxCapacity: 50,
+            maxCapacity: 10,
             isActive: classroom.participantCount > 0
           })
         });
@@ -140,7 +141,7 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
             contentType: 'application/json',
             body: JSON.stringify({ 
               error: 'Classroom full',
-              message: 'This classroom has reached its maximum capacity of 50 participants'
+              message: 'This classroom has reached its maximum capacity of 10 participants'
             })
           });
         }
@@ -172,7 +173,7 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
 
   test('should handle real-time capacity updates', async ({ page }) => {
     // Mock initial state with available capacity
-    let participantCount = 49;
+    let participantCount = 9;
 
     await page.route('**/api/rooms/3', async route => {
       await route.fulfill({
@@ -190,7 +191,7 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
 
     // Initially allow joining
     await page.route('**/api/rooms/3/join', async route => {
-      if (participantCount < 50) {
+      if (participantCount < 10) {
         participantCount++; // Simulate someone joining
         await route.fulfill({
           status: 200,
@@ -207,13 +208,13 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
           contentType: 'application/json',
           body: JSON.stringify({ 
             error: 'Classroom full',
-            message: 'This classroom has reached its maximum capacity of 50 participants'
+            message: 'This classroom has reached its maximum capacity of 10 participants'
           })
         });
       }
     });
 
-    // First user should be able to join (49 -> 50)
+    // First user should be able to join (9 -> 10)
     await page.click('text=Cohort 3');
     await page.fill('[data-testid="name-input"]', 'Last Available Spot');
     await page.click('[data-testid="join-as-student"]');
@@ -241,8 +242,8 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
         body: JSON.stringify({
           id: '4',
           name: 'Cohort 4',
-          participantCount: 50,
-          maxCapacity: 50,
+          participantCount: 10,
+          maxCapacity: 10,
           isActive: true
         })
       });
@@ -254,7 +255,7 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
         contentType: 'application/json',
         body: JSON.stringify({ 
           error: 'Classroom full',
-          message: 'This classroom has reached its maximum capacity of 50 participants'
+          message: 'This classroom has reached its maximum capacity of 10 participants'
         })
       });
     });
@@ -280,12 +281,12 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify([
-          { id: '1', name: 'Cohort 1', participantCount: 50, maxCapacity: 50, isActive: true },
-          { id: '2', name: 'Cohort 2', participantCount: 30, maxCapacity: 50, isActive: true },
-          { id: '3', name: 'Cohort 3', participantCount: 0, maxCapacity: 50, isActive: false },
-          { id: '4', name: 'Cohort 4', participantCount: 45, maxCapacity: 50, isActive: true },
-          { id: '5', name: 'Cohort 5', participantCount: 49, maxCapacity: 50, isActive: true },
-          { id: '6', name: 'Cohort 6', participantCount: 25, maxCapacity: 50, isActive: true }
+          { id: '1', name: 'Cohort 1', participantCount: 10, maxCapacity: 10, isActive: true },
+          { id: '2', name: 'Cohort 2', participantCount: 5, maxCapacity: 10, isActive: true },
+          { id: '3', name: 'Cohort 3', participantCount: 0, maxCapacity: 10, isActive: false },
+          { id: '4', name: 'Cohort 4', participantCount: 8, maxCapacity: 10, isActive: true },
+          { id: '5', name: 'Cohort 5', participantCount: 9, maxCapacity: 10, isActive: true },
+          { id: '6', name: 'Cohort 6', participantCount: 3, maxCapacity: 10, isActive: true }
         ])
       });
     });
@@ -307,6 +308,67 @@ test.describe('Classroom Capacity Limits Integration Tests', () => {
     const availableClassroom = page.locator('[data-testid="classroom-2"]');
     if (await availableClassroom.locator('[data-testid="capacity-indicator"]').isVisible()) {
       await expect(availableClassroom.locator('[data-testid="capacity-indicator"]')).toContainText('Available');
+    }
+  });
+
+  test('should simulate 10 users joining and block 11th user', async ({ page }) => {
+    // Simulate 10 users already in classroom
+    let currentParticipants = 10;
+
+    await page.route('**/api/rooms/1', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: '1',
+          name: 'Cohort 1',
+          participantCount: currentParticipants,
+          maxCapacity: 10,
+          isActive: true
+        })
+      });
+    });
+
+    await page.route('**/api/rooms/1/join', async route => {
+      if (currentParticipants < 10) {
+        currentParticipants++;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            roomUrl: 'https://test.daily.co/room1',
+            participantId: `test-participant-${currentParticipants}`
+          })
+        });
+      } else {
+        await route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({ 
+            error: 'Classroom full',
+            message: 'This classroom has reached its maximum capacity of 10 participants'
+          })
+        });
+      }
+    });
+
+    // Attempt to join as 11th user
+    await page.click('text=Cohort 1');
+    await page.fill('[data-testid="name-input"]', '11th User');
+    await page.click('[data-testid="join-as-student"]');
+
+    // Should be blocked and show capacity message
+    await expect(page.locator('[data-testid="error-message"]')).toContainText('Classroom full');
+    await expect(page.locator('[data-testid="error-message"]')).toContainText('maximum capacity of 10 participants');
+    await expect(page).toHaveURL('http://localhost:3000'); // Should stay on lobby
+
+    // Verify classroom shows participant count = 10
+    await expect(page.locator('[data-testid="classroom-1"]')).toContainText('10');
+    
+    // Verify isAtCapacity flag is true (if displayed in UI)
+    if (await page.locator('[data-testid="capacity-indicator"]').isVisible()) {
+      await expect(page.locator('[data-testid="capacity-indicator"]')).toContainText('Full');
     }
   });
 

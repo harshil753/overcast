@@ -1,98 +1,77 @@
 /**
  * GET /api/rooms endpoint - List all available classrooms
  * 
- * Returns the current state of all 6 classrooms including:
- * - Participant counts
- * - Active status
- * - Capacity information
+ * Returns configuration and current status for all 6 classrooms (Cohort 1-6).
+ * WHY: Lobby needs this data to display classroom grid with participant counts.
  * 
- * WHY: The lobby page needs this data to display classroom availability.
- * We query Daily.co API to get real-time participant counts for each room.
- * 
- * For local development without Daily API access, we return mock data.
- * In production, this would query the Daily REST API.
+ * Contract: specs/003-overcast-video-classroom/contracts/rooms-api.yaml
+ * Functional Requirements: FR-001, FR-011, FR-016, FR-018
  */
 
 import { NextResponse } from 'next/server';
-import { DAILY_ROOMS, DAILY_API_CONFIG } from '@/lib/daily-config';
+import { CLASSROOM_IDS, CLASSROOM_NAMES, MAX_PARTICIPANTS_PER_ROOM } from '@/lib/constants';
+import type { RoomsResponse, ClassroomSummary } from '@/lib/types';
 
 /**
- * Fetch room info from Daily.co API
- * Returns participant count and active status for a specific room
+ * GET handler for /api/rooms endpoint
+ * 
+ * Returns all 6 classrooms with their current status:
+ * - id: Classroom identifier (cohort-1 through cohort-6)
+ * - name: Display name (Cohort 1 through Cohort 6)
+ * - participantCount: Current number of participants (0 for MVP)
+ * - isAtCapacity: Whether room is at 10 participant limit (false for MVP)
+ * 
+ * WHY: MVP implementation stubs participant counts to 0 since we don't have
+ * live Daily.co API integration yet. In production, this would:
+ * 1. Query Daily.co REST API for each room's current participant count
+ * 2. Calculate isAtCapacity based on actual counts vs MAX_PARTICIPANTS_PER_ROOM
+ * 3. Cache results for ~5 seconds to avoid excessive API calls
+ * 
+ * Example production implementation:
+ * ```typescript
+ * const response = await fetch(`https://api.daily.co/v1/rooms/${roomName}`, {
+ *   headers: { 'Authorization': `Bearer ${process.env.DAILY_API_KEY}` }
+ * });
+ * const data = await response.json();
+ * const participantCount = data.config?.max_participants_active || 0;
+ * ```
  */
-async function fetchDailyRoomInfo(roomUrl: string) {
-  // Extract room name from URL (e.g., "cohort-1" from "https://overcast.daily.co/cohort-1")
-  const roomName = roomUrl.split('/').pop();
-  
+export async function GET(): Promise<NextResponse<RoomsResponse>> {
   try {
-    // Only attempt API call if we have an API key
-    if (!DAILY_API_CONFIG.apiKey) {
-      // Return mock data for local development without API key
-      return { participantCount: 0, isActive: false };
-    }
-
-    const response = await fetch(`${DAILY_API_CONFIG.baseUrl}/rooms/${roomName}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${DAILY_API_CONFIG.apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      // Cache for 5 seconds to avoid excessive API calls
-      next: { revalidate: 5 }
-    });
-
-    if (!response.ok) {
-      console.error(`Failed to fetch room ${roomName}:`, response.statusText);
-      return { participantCount: 0, isActive: false };
-    }
-
-    const data = await response.json();
-    
-    // Daily API returns room info with config object
-    const participantCount = data.config?.max_participants_active || 0;
-    const isActive = participantCount > 0;
-
-    return { participantCount, isActive };
-  } catch (error) {
-    console.error(`Error fetching room info for ${roomName}:`, error);
-    // Return safe defaults on error
-    return { participantCount: 0, isActive: false };
-  }
-}
-
-export async function GET() {
-  try {
-    // Fetch room info for all 6 classrooms in parallel
-    const roomInfoPromises = DAILY_ROOMS.map(async (room) => {
-      const { participantCount, isActive } = await fetchDailyRoomInfo(room.url);
+    // Build classroom summaries for all 6 classrooms
+    // WHY: Map constants to ClassroomSummary objects matching API contract
+    const classrooms: ClassroomSummary[] = CLASSROOM_IDS.map((id, index) => {
+      // MVP: Stub participantCount to 0
+      // Future: Query Daily.co API for live participant counts
+      const participantCount = 0;
       
+      // Calculate isAtCapacity based on participant count
+      // WHY: FR-018 requires preventing joins when at capacity (10 participants)
+      const isAtCapacity = participantCount >= MAX_PARTICIPANTS_PER_ROOM;
+
       return {
-        id: room.id,
-        name: room.name,
+        id,
+        name: CLASSROOM_NAMES[index],
         participantCount,
-        isActive,
-        maxCapacity: room.capacity
+        isAtCapacity,
       };
     });
 
-    const classrooms = await Promise.all(roomInfoPromises);
-
-    // Calculate aggregate statistics
-    const totalCapacity = DAILY_ROOMS.reduce((sum, room) => sum + room.capacity, 0);
-    const activeRooms = classrooms.filter(room => room.isActive).length;
-
-    return NextResponse.json({
+    // Return response matching RoomsResponse schema
+    const response: RoomsResponse = {
       classrooms,
-      totalCapacity,
-      activeRooms
-    });
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
-    console.error('Error in GET /api/rooms:', error);
+    // Log error for debugging but don't expose internal details to client
+    console.error('[API /api/rooms] Error generating classroom list:', error);
     
+    // Return 500 error matching ErrorResponse schema
     return NextResponse.json(
       {
-        error: 'Internal Server Error',
-        message: 'Failed to fetch classroom information'
+        error: 'Failed to load classroom configuration',
+        code: 'CONFIG_LOAD_ERROR',
       },
       { status: 500 }
     );

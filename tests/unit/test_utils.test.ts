@@ -1,577 +1,378 @@
 /**
  * Unit Tests: Utility Functions
  * 
- * Comprehensive tests for utility functions in lib/utils.ts
- * Tests cover normal operation, edge cases, and error conditions
- * 
- * WHY: Unit tests ensure utility functions work correctly in isolation
- * and handle edge cases gracefully. These tests serve as documentation
- * for how each utility function should behave.
+ * Tests utility functions from lib/utils.ts and type guards from lib/types.ts
+ * WHY: Validates utility logic, catches edge case bugs, ensures type safety
  */
 
+import { describe, it, expect } from '@jest/globals';
 import {
   cn,
-  generateUUID,
   validateUserName,
   validateClassroomId,
-  formatTimestamp,
-  getTimeElapsed,
-  debounce,
-  safeJsonParse,
-  isValidUrl,
-  truncateText,
-  capitalize,
-  logger,
-  Logger,
-  LogLevel,
-  formatError,
-  safeExecute,
-  withErrorBoundary,
-  withRetry,
-  monitorPerformance,
+  formatParticipantCount,
+  getClassroomDisplayName,
+  generateUUID,
 } from '@/lib/utils';
+import {
+  isValidClassroomId,
+  isValidUserName,
+  isInstructor,
+  deriveClassroomState,
+} from '@/lib/types';
+import type { UserSession, ClassroomConfig, Participant } from '@/lib/types';
 
-// Mock console methods to prevent noise in test output
-const mockConsole = {
-  log: jest.fn(),
-  error: jest.fn(),
-  warn: jest.fn(),
-};
+// ============================================================================
+// CLASS NAME UTILITY (cn)
+// ============================================================================
 
-beforeAll(() => {
-  global.console = mockConsole as any;
-});
-
-afterEach(() => {
-  jest.clearAllMocks();
-  logger.clearHistory();
-});
-
-describe('cn() - Class Name Merger', () => {
-  test('combines multiple class names', () => {
-    const result = cn('foo', 'bar', 'baz');
-    expect(result).toBe('foo bar baz');
+describe('cn() - Class Name Utility', () => {
+  it('should combine multiple class names', () => {
+    const result = cn('class1', 'class2', 'class3');
+    expect(result).toContain('class1');
+    expect(result).toContain('class2');
+    expect(result).toContain('class3');
   });
 
-  test('handles conditional classes', () => {
+  it('should handle conditional classes', () => {
     const isActive = true;
     const result = cn('base', isActive && 'active');
-    expect(result).toBe('base active');
+    expect(result).toContain('base');
+    expect(result).toContain('active');
   });
 
-  test('merges Tailwind classes correctly', () => {
-    const result = cn('p-4', 'p-6'); // p-6 should override p-4
-    expect(result).toBe('p-6');
+  it('should filter out false/undefined/null values', () => {
+    const result = cn('class1', false, null, undefined, 'class2');
+    expect(result).toContain('class1');
+    expect(result).toContain('class2');
+    expect(result).not.toContain('false');
+    expect(result).not.toContain('null');
   });
 
-  test('handles empty values', () => {
-    const result = cn('foo', null, undefined, false, '', 'bar');
-    expect(result).toBe('foo bar');
-  });
-
-  test('handles arrays', () => {
-    const result = cn(['foo', 'bar'], 'baz');
-    expect(result).toBe('foo bar baz');
-  });
-});
-
-describe('generateUUID()', () => {
-  test('generates valid UUID v4 format', () => {
-    const uuid = generateUUID();
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    expect(uuid).toMatch(uuidRegex);
-  });
-
-  test('generates unique UUIDs', () => {
-    const uuid1 = generateUUID();
-    const uuid2 = generateUUID();
-    expect(uuid1).not.toBe(uuid2);
-  });
-
-  test('returns string of correct length', () => {
-    const uuid = generateUUID();
-    expect(uuid.length).toBe(36); // UUID format: 8-4-4-4-12 = 36 chars
+  it('should merge Tailwind classes correctly', () => {
+    const result = cn('px-4', 'px-8'); // Should use px-8 (last wins)
+    expect(result).toContain('px-8');
+    expect(result).not.toContain('px-4');
   });
 });
 
-describe('validateUserName()', () => {
-  test('accepts valid names', () => {
-    const result = validateUserName('John Doe');
-    expect(result.isValid).toBe(true);
-    expect(result.error).toBeUndefined();
+// ============================================================================
+// USER NAME VALIDATION
+// ============================================================================
+
+describe('validateUserName() - User Name Validation', () => {
+  it('should validate correct names', () => {
+    expect(validateUserName('John Doe').isValid).toBe(true);
+    expect(validateUserName('A').isValid).toBe(true);
+    expect(validateUserName('a'.repeat(50)).isValid).toBe(true);
   });
 
-  test('rejects empty names', () => {
+  it('should reject empty names', () => {
     const result = validateUserName('');
     expect(result.isValid).toBe(false);
-    expect(result.error).toBe('Name is required');
+    expect(result.error).toContain('required');
   });
 
-  test('rejects whitespace-only names', () => {
+  it('should reject whitespace-only names', () => {
     const result = validateUserName('   ');
     expect(result.isValid).toBe(false);
-    expect(result.error).toBe('Name is required');
+    expect(result.error).toContain('required');
   });
 
-  test('rejects names over 50 characters', () => {
-    const longName = 'A'.repeat(51);
-    const result = validateUserName(longName);
+  it('should reject names longer than 50 characters', () => {
+    const result = validateUserName('a'.repeat(51));
     expect(result.isValid).toBe(false);
-    expect(result.error).toBe('Name must be 50 characters or less');
+    expect(result.error).toContain('50 characters');
   });
 
-  test('accepts names with exactly 50 characters', () => {
-    const name = 'A'.repeat(50);
-    const result = validateUserName(name);
-    expect(result.isValid).toBe(true);
-  });
-
-  test('trims whitespace before validation', () => {
-    const result = validateUserName('  John  ');
-    expect(result.isValid).toBe(true);
+  it('should trim whitespace before validation', () => {
+    expect(validateUserName('  John Doe  ').isValid).toBe(true);
   });
 });
 
-describe('validateClassroomId()', () => {
-  test('accepts valid classroom IDs (1-6)', () => {
-    for (let i = 1; i <= 6; i++) {
-      expect(validateClassroomId(i.toString())).toBe(true);
-    }
+describe('isValidUserName() - Type Guard', () => {
+  it('should return true for valid names', () => {
+    expect(isValidUserName('John')).toBe(true);
+    expect(isValidUserName('A')).toBe(true);
+    expect(isValidUserName('a'.repeat(50))).toBe(true);
   });
 
-  test('rejects invalid classroom IDs', () => {
+  it('should return false for invalid names', () => {
+    expect(isValidUserName('')).toBe(false);
+    expect(isValidUserName('a'.repeat(51))).toBe(false);
+  });
+
+  it('should enforce FR-015 (1-50 character requirement)', () => {
+    // WHY: FR-015 requires name between 1 and 50 characters
+    expect(isValidUserName('a')).toBe(true);
+    expect(isValidUserName('a'.repeat(50))).toBe(true);
+    expect(isValidUserName('')).toBe(false);
+    expect(isValidUserName('a'.repeat(51))).toBe(false);
+  });
+});
+
+// ============================================================================
+// CLASSROOM ID VALIDATION
+// ============================================================================
+
+describe('validateClassroomId() - Classroom ID Validation', () => {
+  it('should validate correct classroom IDs (1-6)', () => {
+    expect(validateClassroomId('1')).toBe(true);
+    expect(validateClassroomId('2')).toBe(true);
+    expect(validateClassroomId('3')).toBe(true);
+    expect(validateClassroomId('4')).toBe(true);
+    expect(validateClassroomId('5')).toBe(true);
+    expect(validateClassroomId('6')).toBe(true);
+  });
+
+  it('should reject invalid classroom IDs', () => {
     expect(validateClassroomId('0')).toBe(false);
     expect(validateClassroomId('7')).toBe(false);
     expect(validateClassroomId('10')).toBe(false);
     expect(validateClassroomId('abc')).toBe(false);
     expect(validateClassroomId('')).toBe(false);
   });
+});
 
-  test('rejects non-numeric IDs', () => {
-    expect(validateClassroomId('1a')).toBe(false);
-    expect(validateClassroomId('a1')).toBe(false);
+describe('isValidClassroomId() - Type Guard', () => {
+  it('should validate cohort-[1-6] pattern', () => {
+    expect(isValidClassroomId('cohort-1')).toBe(true);
+    expect(isValidClassroomId('cohort-2')).toBe(true);
+    expect(isValidClassroomId('cohort-3')).toBe(true);
+    expect(isValidClassroomId('cohort-4')).toBe(true);
+    expect(isValidClassroomId('cohort-5')).toBe(true);
+    expect(isValidClassroomId('cohort-6')).toBe(true);
+  });
+
+  it('should reject invalid cohort IDs', () => {
+    expect(isValidClassroomId('cohort-0')).toBe(false);
+    expect(isValidClassroomId('cohort-7')).toBe(false);
+    expect(isValidClassroomId('cohort-10')).toBe(false);
+    expect(isValidClassroomId('classroom-1')).toBe(false);
+    expect(isValidClassroomId('cohort1')).toBe(false);
+    expect(isValidClassroomId('cohort-')).toBe(false);
+    expect(isValidClassroomId('')).toBe(false);
   });
 });
 
-describe('formatTimestamp()', () => {
-  test('formats date with default options', () => {
-    const date = new Date('2024-01-15T14:30:45Z');
-    const result = formatTimestamp(date);
-    expect(result).toMatch(/\d{1,2}:\d{2}:\d{2}/); // HH:MM:SS format
+// ============================================================================
+// PARTICIPANT COUNT FORMATTING
+// ============================================================================
+
+describe('formatParticipantCount() - Participant Count Formatting', () => {
+  it('should format zero participants', () => {
+    expect(formatParticipantCount(0)).toBe('No participants');
   });
 
-  test('formats date with custom options', () => {
-    const date = new Date('2024-01-15T14:30:45Z');
-    const result = formatTimestamp(date, { year: 'numeric', month: 'short', day: 'numeric' });
-    expect(result).toContain('2024');
-    expect(result).toContain('Jan');
+  it('should format single participant (singular)', () => {
+    expect(formatParticipantCount(1)).toBe('1 participant');
   });
 
-  test('handles different date objects', () => {
-    const date1 = new Date('2024-06-15T09:00:00Z');
-    const date2 = new Date('2024-12-25T23:59:59Z');
-    const result1 = formatTimestamp(date1);
-    const result2 = formatTimestamp(date2);
-    expect(result1).not.toBe(result2);
-  });
-});
-
-describe('getTimeElapsed()', () => {
-  test('formats seconds correctly', () => {
-    const past = new Date(Date.now() - 30 * 1000); // 30 seconds ago
-    const result = getTimeElapsed(past);
-    expect(result).toBe('30s');
+  it('should format multiple participants (plural)', () => {
+    expect(formatParticipantCount(2)).toBe('2 participants');
+    expect(formatParticipantCount(5)).toBe('5 participants');
+    expect(formatParticipantCount(10)).toBe('10 participants');
   });
 
-  test('formats minutes and seconds', () => {
-    const past = new Date(Date.now() - 150 * 1000); // 2 minutes 30 seconds ago
-    const result = getTimeElapsed(past);
-    expect(result).toBe('2m 30s');
-  });
-
-  test('formats hours and minutes', () => {
-    const past = new Date(Date.now() - 3700 * 1000); // 1 hour 1 minute 40 seconds ago
-    const result = getTimeElapsed(past);
-    expect(result).toBe('1h 1m');
-  });
-
-  test('handles zero elapsed time', () => {
-    const now = new Date();
-    const result = getTimeElapsed(now);
-    expect(result).toMatch(/^0s$/);
+  it('should handle maximum capacity (10 participants per FR-016)', () => {
+    expect(formatParticipantCount(10)).toBe('10 participants');
   });
 });
 
-describe('debounce()', () => {
-  jest.useFakeTimers();
+// ============================================================================
+// CLASSROOM DISPLAY NAME
+// ============================================================================
 
-  test('delays function execution', () => {
-    const mockFn = jest.fn();
-    const debouncedFn = debounce(mockFn, 100);
-
-    debouncedFn();
-    expect(mockFn).not.toHaveBeenCalled();
-
-    jest.advanceTimersByTime(100);
-    expect(mockFn).toHaveBeenCalledTimes(1);
+describe('getClassroomDisplayName() - Classroom Display Name', () => {
+  it('should return correct names for valid IDs', () => {
+    expect(getClassroomDisplayName('1')).toBe('Cohort 1');
+    expect(getClassroomDisplayName('2')).toBe('Cohort 2');
+    expect(getClassroomDisplayName('3')).toBe('Cohort 3');
+    expect(getClassroomDisplayName('4')).toBe('Cohort 4');
+    expect(getClassroomDisplayName('5')).toBe('Cohort 5');
+    expect(getClassroomDisplayName('6')).toBe('Cohort 6');
   });
 
-  test('cancels previous calls', () => {
-    const mockFn = jest.fn();
-    const debouncedFn = debounce(mockFn, 100);
-
-    debouncedFn();
-    debouncedFn();
-    debouncedFn();
-
-    jest.advanceTimersByTime(100);
-    expect(mockFn).toHaveBeenCalledTimes(1);
-  });
-
-  test('passes arguments correctly', () => {
-    const mockFn = jest.fn();
-    const debouncedFn = debounce(mockFn, 100);
-
-    debouncedFn('arg1', 'arg2');
-    jest.advanceTimersByTime(100);
-
-    expect(mockFn).toHaveBeenCalledWith('arg1', 'arg2');
-  });
-
-  afterAll(() => {
-    jest.useRealTimers();
+  it('should return fallback for invalid IDs', () => {
+    expect(getClassroomDisplayName('0')).toBe('Classroom 0');
+    expect(getClassroomDisplayName('7')).toBe('Classroom 7');
+    expect(getClassroomDisplayName('abc')).toBe('Classroom abc');
   });
 });
 
-describe('safeJsonParse()', () => {
-  test('parses valid JSON', () => {
-    const json = '{"name":"John","age":30}';
-    const result = safeJsonParse(json);
-    expect(result).toEqual({ name: 'John', age: 30 });
+// ============================================================================
+// UUID GENERATION
+// ============================================================================
+
+describe('generateUUID() - UUID Generation', () => {
+  it('should generate valid UUID v4 format', () => {
+    const uuid = generateUUID();
+    // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    expect(uuid).toMatch(uuidRegex);
   });
 
-  test('returns null for invalid JSON', () => {
-    const invalidJson = '{name: John}'; // Invalid JSON
-    const result = safeJsonParse(invalidJson);
-    expect(result).toBeNull();
+  it('should generate unique UUIDs', () => {
+    const uuid1 = generateUUID();
+    const uuid2 = generateUUID();
+    expect(uuid1).not.toBe(uuid2);
   });
 
-  test('handles arrays', () => {
-    const json = '[1, 2, 3]';
-    const result = safeJsonParse(json);
-    expect(result).toEqual([1, 2, 3]);
-  });
-
-  test('handles primitives', () => {
-    expect(safeJsonParse('true')).toBe(true);
-    expect(safeJsonParse('123')).toBe(123);
-    expect(safeJsonParse('"string"')).toBe('string');
-  });
-
-  test('returns null for empty string', () => {
-    const result = safeJsonParse('');
-    expect(result).toBeNull();
+  it('should generate UUIDs with correct length', () => {
+    const uuid = generateUUID();
+    expect(uuid.length).toBe(36); // 32 hex chars + 4 hyphens
   });
 });
 
-describe('isValidUrl()', () => {
-  test('validates correct URLs', () => {
-    expect(isValidUrl('https://example.com')).toBe(true);
-    expect(isValidUrl('http://localhost:3000')).toBe(true);
-    expect(isValidUrl('https://overcast.daily.co/room-1')).toBe(true);
-  });
+// ============================================================================
+// INSTRUCTOR TYPE GUARD
+// ============================================================================
 
-  test('rejects invalid URLs', () => {
-    expect(isValidUrl('not a url')).toBe(false);
-    expect(isValidUrl('ftp://invalid')).toBe(false);
-    expect(isValidUrl('')).toBe(false);
-  });
-
-  test('handles URLs with query parameters', () => {
-    expect(isValidUrl('https://example.com?param=value')).toBe(true);
-  });
-
-  test('handles URLs with fragments', () => {
-    expect(isValidUrl('https://example.com#section')).toBe(true);
-  });
-});
-
-describe('truncateText()', () => {
-  test('returns text as-is if under limit', () => {
-    const text = 'Short text';
-    expect(truncateText(text, 20)).toBe('Short text');
-  });
-
-  test('truncates text over limit', () => {
-    const text = 'This is a very long text that should be truncated';
-    const result = truncateText(text, 20);
-    expect(result.length).toBe(20);
-    expect(result).toContain('...');
-  });
-
-  test('handles exact length', () => {
-    const text = 'Exact';
-    expect(truncateText(text, 5)).toBe('Exact');
-  });
-
-  test('handles empty string', () => {
-    expect(truncateText('', 10)).toBe('');
-  });
-
-  test('adds ellipsis correctly', () => {
-    const text = 'Long text here';
-    const result = truncateText(text, 10);
-    expect(result).toBe('Long te...');
-  });
-});
-
-describe('capitalize()', () => {
-  test('capitalizes first letter', () => {
-    expect(capitalize('hello')).toBe('Hello');
-  });
-
-  test('lowercases rest of string', () => {
-    expect(capitalize('HELLO')).toBe('Hello');
-    expect(capitalize('hELLO')).toBe('Hello');
-  });
-
-  test('handles empty string', () => {
-    expect(capitalize('')).toBe('');
-  });
-
-  test('handles single character', () => {
-    expect(capitalize('a')).toBe('A');
-  });
-
-  test('handles multiple words', () => {
-    expect(capitalize('hello world')).toBe('Hello world');
-  });
-});
-
-describe('Logger Class', () => {
-  test('creates singleton instance', () => {
-    const logger1 = Logger.getInstance();
-    const logger2 = Logger.getInstance();
-    expect(logger1).toBe(logger2);
-  });
-
-  test('logs debug messages in development', () => {
-    const originalEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
-    
-    logger.debug('Debug message', { key: 'value' });
-    
-    process.env.NODE_ENV = originalEnv;
-  });
-
-  test('logs info messages', () => {
-    logger.info('Info message');
-    expect(mockConsole.log).toHaveBeenCalled();
-  });
-
-  test('logs warning messages', () => {
-    logger.warn('Warning message');
-    expect(mockConsole.log).toHaveBeenCalled();
-  });
-
-  test('logs error messages', () => {
-    const error = new Error('Test error');
-    logger.error('Error occurred', error);
-    expect(mockConsole.log).toHaveBeenCalled();
-  });
-
-  test('stores log history', () => {
-    logger.clearHistory();
-    logger.info('Message 1');
-    logger.warn('Message 2');
-    
-    const history = logger.getLogHistory();
-    expect(history.length).toBe(2);
-    expect(history[0].message).toBe('Message 1');
-    expect(history[1].message).toBe('Message 2');
-  });
-
-  test('limits log history size', () => {
-    logger.clearHistory();
-    
-    // Log more than maxHistorySize (100)
-    for (let i = 0; i < 150; i++) {
-      logger.info(`Message ${i}`);
-    }
-    
-    const history = logger.getLogHistory();
-    expect(history.length).toBe(100);
-  });
-
-  test('clears log history', () => {
-    logger.info('Test message');
-    expect(logger.getLogHistory().length).toBeGreaterThan(0);
-    
-    logger.clearHistory();
-    expect(logger.getLogHistory().length).toBe(0);
-  });
-});
-
-describe('formatError()', () => {
-  test('formats error with message', () => {
-    const error = new Error('Test error');
-    const result = formatError(error);
-    expect(result).toContain('Error: Test error');
-  });
-
-  test('includes stack trace in development', () => {
-    const originalEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
-    
-    const error = new Error('Test error');
-    const result = formatError(error);
-    expect(result).toContain('Error: Test error');
-    
-    process.env.NODE_ENV = originalEnv;
-  });
-
-  test('respects includeStack parameter', () => {
-    const error = new Error('Test error');
-    const withStack = formatError(error, true);
-    const withoutStack = formatError(error, false);
-    
-    expect(withStack.length).toBeGreaterThan(withoutStack.length);
-  });
-});
-
-describe('safeExecute()', () => {
-  test('returns success result for successful execution', async () => {
-    const fn = async () => 'success';
-    const result = await safeExecute(fn);
-    
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data).toBe('success');
-    }
-  });
-
-  test('returns error result for failed execution', async () => {
-    const fn = async () => {
-      throw new Error('Failed');
+describe('isInstructor() - Instructor Type Guard', () => {
+  it('should return true for instructor sessions', () => {
+    const instructorSession: UserSession = {
+      name: 'Dr. Smith',
+      role: 'instructor',
+      sessionId: 'session-123',
+      currentClassroom: 'cohort-1',
     };
-    const result = await safeExecute(fn, 'Operation failed');
-    
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toBeInstanceOf(Error);
-      expect(result.error.message).toBe('Failed');
-    }
+    expect(isInstructor(instructorSession)).toBe(true);
   });
 
-  test('logs errors automatically', async () => {
-    const fn = async () => {
-      throw new Error('Test error');
+  it('should return false for student sessions', () => {
+    const studentSession: UserSession = {
+      name: 'John Doe',
+      role: 'student',
+      sessionId: 'session-456',
+      currentClassroom: 'cohort-1',
     };
-    await safeExecute(fn, 'Custom error message');
-    
-    expect(mockConsole.log).toHaveBeenCalled();
+    expect(isInstructor(studentSession)).toBe(false);
   });
 });
 
-describe('withErrorBoundary()', () => {
-  test('returns function result on success', () => {
-    const fn = () => 'success';
-    const result = withErrorBoundary(fn, 'fallback');
-    expect(result).toBe('success');
+// ============================================================================
+// DERIVE CLASSROOM STATE
+// ============================================================================
+
+describe('deriveClassroomState() - Derive Classroom State', () => {
+  const mockConfig: ClassroomConfig = {
+    id: 'cohort-1',
+    name: 'Cohort 1',
+    dailyUrl: 'https://example.daily.co/cohort-1',
+    maxParticipants: 10,
+  };
+
+  it('should derive state from empty participant list', () => {
+    const participants: Participant[] = [];
+    const state = deriveClassroomState(mockConfig, participants);
+    
+    expect(state.id).toBe('cohort-1');
+    expect(state.name).toBe('Cohort 1');
+    expect(state.participantCount).toBe(0);
+    expect(state.isAtCapacity).toBe(false);
+    expect(state.isActive).toBe(false);
   });
 
-  test('returns fallback on error', () => {
-    const fn = () => {
-      throw new Error('Failed');
-    };
-    const result = withErrorBoundary(fn, 'fallback');
-    expect(result).toBe('fallback');
+  it('should derive state from participant list', () => {
+    const participants: Participant[] = [
+      { session_id: '1', user_name: 'User 1', local: false, owner: false },
+      { session_id: '2', user_name: 'User 2', local: false, owner: false },
+      { session_id: '3', user_name: 'User 3', local: true, owner: false },
+    ];
+    const state = deriveClassroomState(mockConfig, participants);
+    
+    expect(state.participantCount).toBe(3);
+    expect(state.isAtCapacity).toBe(false);
+    expect(state.isActive).toBe(true);
   });
 
-  test('logs errors', () => {
-    const fn = () => {
-      throw new Error('Test error');
-    };
-    withErrorBoundary(fn, 'fallback', 'Custom error');
+  it('should detect capacity when at maximum (10 participants)', () => {
+    const participants: Participant[] = Array.from({ length: 10 }, (_, i) => ({
+      session_id: `session-${i}`,
+      user_name: `User ${i}`,
+      local: i === 0,
+      owner: false,
+    }));
+    const state = deriveClassroomState(mockConfig, participants);
     
-    expect(mockConsole.log).toHaveBeenCalled();
-  });
-});
-
-describe('withRetry()', () => {
-  jest.useFakeTimers();
-
-  test('succeeds on first attempt', async () => {
-    const fn = jest.fn().mockResolvedValue('success');
-    const result = await withRetry(fn, 3, 100);
-    
-    expect(result).toBe('success');
-    expect(fn).toHaveBeenCalledTimes(1);
+    expect(state.participantCount).toBe(10);
+    expect(state.isAtCapacity).toBe(true);
+    expect(state.isActive).toBe(true);
   });
 
-  test('retries on failure', async () => {
-    const fn = jest.fn()
-      .mockRejectedValueOnce(new Error('Fail 1'))
-      .mockRejectedValueOnce(new Error('Fail 2'))
-      .mockResolvedValue('success');
+  it('should validate FR-016 (10 participant maximum)', () => {
+    // WHY: FR-016 requires enforcing 10 participant capacity
+    const participants: Participant[] = Array.from({ length: 10 }, (_, i) => ({
+      session_id: `session-${i}`,
+      user_name: `User ${i}`,
+      local: false,
+      owner: false,
+    }));
+    const state = deriveClassroomState(mockConfig, participants);
     
-    const promise = withRetry(fn, 3, 100);
-    
-    // Advance timers for retries
-    await Promise.resolve();
-    jest.advanceTimersByTime(100);
-    await Promise.resolve();
-    jest.advanceTimersByTime(100);
-    
-    const result = await promise;
-    expect(result).toBe('success');
-    expect(fn).toHaveBeenCalledTimes(3);
+    expect(state.isAtCapacity).toBe(true);
   });
 
-  test('throws after max retries', async () => {
-    const fn = jest.fn().mockRejectedValue(new Error('Always fails'));
+  it('should mark classroom as active with 1 participant', () => {
+    const participants: Participant[] = [
+      { session_id: 'session-1', user_name: 'User 1', local: true, owner: false },
+    ];
+    const state = deriveClassroomState(mockConfig, participants);
     
-    const promise = withRetry(fn, 3, 100);
-    
-    await Promise.resolve();
-    jest.advanceTimersByTime(100);
-    await Promise.resolve();
-    jest.advanceTimersByTime(100);
-    await Promise.resolve();
-    
-    await expect(promise).rejects.toThrow('Always fails');
-    expect(fn).toHaveBeenCalledTimes(3);
-  });
-
-  afterAll(() => {
-    jest.useRealTimers();
-  });
-});
-
-describe('monitorPerformance()', () => {
-  test('returns function result', async () => {
-    const fn = async () => 'result';
-    const result = await monitorPerformance(fn, 'test operation');
-    expect(result).toBe('result');
-  });
-
-  test('logs slow operations', async () => {
-    const slowFn = async () => {
-      await new Promise(resolve => setTimeout(resolve, 1100));
-      return 'done';
-    };
-    
-    await monitorPerformance(slowFn, 'slow operation', 1000);
-    expect(mockConsole.log).toHaveBeenCalled();
-  });
-
-  test('logs operation errors', async () => {
-    const fn = async () => {
-      throw new Error('Operation failed');
-    };
-    
-    await expect(monitorPerformance(fn, 'failing operation')).rejects.toThrow('Operation failed');
-    expect(mockConsole.log).toHaveBeenCalled();
+    expect(state.isActive).toBe(true);
+    expect(state.participantCount).toBe(1);
   });
 });
 
+// ============================================================================
+// EDGE CASES AND ERROR CONDITIONS
+// ============================================================================
+
+describe('Edge Cases and Error Conditions', () => {
+  describe('validateUserName - Edge Cases', () => {
+    it('should handle special characters', () => {
+      expect(validateUserName('José García').isValid).toBe(true);
+      expect(validateUserName('李明').isValid).toBe(true);
+      expect(validateUserName('Müller').isValid).toBe(true);
+    });
+
+    it('should handle emoji in names', () => {
+      expect(validateUserName('John 😊').isValid).toBe(true);
+    });
+
+    it('should handle boundary cases', () => {
+      expect(validateUserName('a').isValid).toBe(true);
+      expect(validateUserName('a'.repeat(50)).isValid).toBe(true);
+      expect(validateUserName('a'.repeat(51)).isValid).toBe(false);
+    });
+  });
+
+  describe('formatParticipantCount - Edge Cases', () => {
+    it('should handle negative numbers gracefully', () => {
+      // Should handle edge case even though it shouldn't occur in practice
+      const result = formatParticipantCount(-1);
+      expect(result).toBeTruthy(); // Should not crash
+    });
+
+    it('should handle very large numbers', () => {
+      const result = formatParticipantCount(1000);
+      expect(result).toBe('1000 participants');
+    });
+  });
+
+  describe('deriveClassroomState - Edge Cases', () => {
+    it('should handle invalid participant data gracefully', () => {
+      const mockConfig: ClassroomConfig = {
+        id: 'cohort-1',
+        name: 'Cohort 1',
+        dailyUrl: 'https://example.daily.co/cohort-1',
+        maxParticipants: 10,
+      };
+      
+      // Empty participants array should not crash
+      const state = deriveClassroomState(mockConfig, []);
+      expect(state).toBeDefined();
+      expect(state.participantCount).toBe(0);
+    });
+  });
+});

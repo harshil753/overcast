@@ -1,201 +1,241 @@
 // TypeScript type definitions for Overcast Video Classroom Application
-// Based on data-model.md and API contracts (rooms-api.yaml, participants-api.yaml)
+// Based on data-model.md - Phase 1 design artifacts
+// WHY: Type safety prevents runtime errors, type guards validate business rules
 
-// Daily React integration types (from @daily-co/daily-js)
-import { DailyParticipant, DailyCall } from '@daily-co/daily-js';
-
-// Re-export Daily types for convenience
-export type { DailyParticipant, DailyCall };
+// ============================================================================
+// CORE ENTITIES
+// ============================================================================
 
 /**
- * Application-specific user context
- * Represents a person using the application in either student or instructor mode
+ * Represents a user's session state.
+ * WHY: Stores user-entered name and selected role (student/instructor).
+ * Used to personalize UI and determine available controls.
  */
-export interface AppUser {
-  name: string;                    // Display name entered by user (required, 1-50 characters)
-  role: 'student' | 'instructor';  // User role determining available features
-  sessionId: string;               // Unique identifier for current session (UUID)
-  currentClassroom: string | null; // ID of classroom currently joined (1-6 or null)
-  joinedAt: Date;                  // Timestamp when user joined current classroom
+export interface UserSession {
+  /** User-provided name (no authentication required per clarification) */
+  name: string;
+  
+  /** Role selected in lobby: student (default) or instructor */
+  role: UserRole;
+  
+  /** Daily.co session ID, assigned when user joins a classroom */
+  sessionId: string | null;
+  
+  /** Currently joined classroom ID, null if in lobby */
+  currentClassroom: string | null;
 }
 
 /**
- * Classroom configuration (static)
- * Represents one of 6 available video classroom sessions
+ * User roles with different permission levels.
+ * WHY: Enum ensures type safety and documents the two available roles.
  */
-export interface Classroom {
-  id: string;           // Classroom identifier ('1' through '6')
-  name: string;         // Display name (e.g., "Cohort 1", "Cohort 2")
-  dailyRoomUrl: string; // Pre-configured Daily.co room URL
-  maxCapacity: number;  // Maximum participants (always 50)
+export type UserRole = 'student' | 'instructor';
+
+/**
+ * Represents a configured classroom/cohort.
+ * WHY: Maps environment variables to application config for each of the 6 cohorts.
+ */
+export interface ClassroomConfig {
+  /** Unique identifier (cohort-1, cohort-2, ..., cohort-6) */
+  id: string;
+  
+  /** Display name for UI (Cohort 1, Cohort 2, ..., Cohort 6) */
+  name: string;
+  
+  /** Daily.co room URL from environment variable */
+  dailyUrl: string;
+  
+  /** Maximum participants allowed (10 per requirement FR-016) */
+  maxParticipants: number;
 }
 
 /**
- * Runtime classroom state (derived from Daily hooks)
- * Current state of a classroom session with live participant data
+ * Aggregate state for a classroom.
+ * WHY: Provides UI with participant count and capacity status
+ * without exposing full participant details.
  */
 export interface ClassroomState {
-  id: string;                      // Classroom identifier
-  participants: DailyParticipant[]; // From useParticipantIds() + daily.participants()
-  participantCount: number;        // Derived from participants.length
-  isActive: boolean;               // Derived from participantCount > 0
-  instructors: DailyParticipant[]; // Filtered by role
-  students: DailyParticipant[];    // Filtered by role
+  /** Classroom identifier */
+  id: string;
+  
+  /** Display name */
+  name: string;
+  
+  /** Current number of participants */
+  participantCount: number;
+  
+  /** Whether classroom has reached 10 participant limit (FR-016) */
+  isAtCapacity: boolean;
+  
+  /** Whether anyone is currently in the classroom */
+  isActive: boolean;
 }
 
 /**
- * Participant state within a specific classroom
- * Represents a user's presence and state within a classroom
+ * Possible states for audio/video tracks.
+ * WHY: Determines if we render video tile or placeholder.
+ */
+export type TrackState = 
+  | 'playable'      // Track is active and can be rendered
+  | 'loading'       // Track is initializing
+  | 'interrupted'   // Temporary network issue
+  | 'off'           // User disabled camera/mic
+  | 'blocked';      // Browser denied permissions
+
+/**
+ * Daily.co participant object (simplified for our use case).
+ * WHY: Daily.co provides this structure; we document relevant fields.
+ * Full type from @daily-co/daily-js: DailyParticipant
  */
 export interface Participant {
-  sessionId: string;               // Reference to User sessionId (UUID)
-  name: string;                    // Display name
-  role: 'student' | 'instructor';  // Role in this classroom
-  classroomId: string;             // Reference to Classroom id (1-6)
-  isAudioMuted: boolean;           // Audio state (can be controlled by instructors)
-  isVideoEnabled: boolean;         // Video state
-  connectionState: 'connecting' | 'connected' | 'disconnected'; // Connection status
-  joinedAt: Date;                  // When participant joined this classroom
-  dailyParticipantId?: string;     // Daily.co participant identifier (when connected)
+  /** Unique Daily session identifier */
+  session_id: string;
+  
+  /** User's display name (from UserSession.name) */
+  user_name: string;
+  
+  /** Whether this is the local user */
+  local: boolean;
+  
+  /** Whether this user owns the room (not used in our app) */
+  owner: boolean;
+  
+  /** Video and audio track states */
+  tracks: {
+    video: {
+      state: TrackState;
+      subscribed?: boolean;
+    };
+    audio: {
+      state: TrackState;
+      subscribed?: boolean;
+    };
+  };
+}
+
+// ============================================================================
+// API CONTRACTS
+// ============================================================================
+
+/**
+ * Response from GET /api/rooms endpoint.
+ * WHY: Provides lobby with list of all classrooms and their status.
+ */
+export interface RoomsResponse {
+  classrooms: ClassroomSummary[];
 }
 
 /**
- * Breakout room (future enhancement)
- * Sub-session within a classroom created by instructors
+ * Summary of a classroom's current state.
+ * WHY: Lighter payload than full ClassroomState for lobby display.
  */
-export interface BreakoutRoom {
-  id: string;                      // Unique identifier for breakout room (UUID)
-  parentClassroomId: string;       // Reference to main classroom (1-6)
-  name: string;                    // Display name (e.g., "Group 1", "Discussion A")
-  participantIds: string[];        // Daily participant session IDs
-  createdBy: string;               // User sessionId of instructor who created it
-  createdAt: Date;                 // Creation timestamp
-  isActive: boolean;               // Whether breakout room is currently running
-  maxDuration: number;             // Maximum duration in minutes (default 30)
-  remainingTime?: number;          // Remaining time in minutes
+export interface ClassroomSummary {
+  id: string;
+  name: string;
+  participantCount: number;
+  isAtCapacity: boolean;
 }
 
 /**
- * Daily React hook configurations
- * Configuration for Daily.co integration hooks
+ * Request body to mute a participant.
+ * WHY: Instructor action to mute student (FR-009).
  */
-export interface UseDailyConfig {
-  url: string;                     // Daily room URL
-  userName: string;                // User's display name
-  token?: string;                  // Optional Daily token for auth
-  audioSource?: boolean | string | MediaStreamTrack;
-  videoSource?: boolean | string | MediaStreamTrack;
-}
-
-export interface UseParticipantConfig {
-  onParticipantUpdated?(participant: DailyParticipant): void;
-  onParticipantLeft?(participant: DailyParticipant): void;
-}
-
-/**
- * API Request/Response types
- * Based on OpenAPI contracts
- */
-
-// Rooms API types
-export interface JoinRoomRequest {
-  name: string;                    // User display name (1-50 chars)
-  role: 'student' | 'instructor';  // User role
-}
-
-export interface JoinRoomResponse {
-  success: boolean;
-  participant: Participant;
-  dailyRoomUrl: string;           // Daily.co room URL
-  token?: string;                 // Daily.co room token
-}
-
-export interface LeaveRoomRequest {
-  sessionId: string;              // UUID of participant leaving
-}
-
-export interface ClassroomDetails extends Classroom {
-  participantCount: number;       // Current number of participants (0-50)
-  isActive: boolean;              // Whether classroom has any participants
-  instructors: AppUser[];         // List of current instructors
-  students: AppUser[];            // List of current students
-  createdAt?: Date;               // When classroom session started
-}
-
-// Participants API types
 export interface MuteParticipantRequest {
-  instructorSessionId: string;    // UUID of instructor making request
-  muted: boolean;                 // True to mute, false to unmute
-  classroomId: string;            // Classroom where action is taking place (1-6)
+  /** Whether to mute (true) or unmute (false) */
+  muted: boolean;
+  
+  /** Session ID of instructor making request (for authorization) */
+  instructorSessionId: string;
 }
 
-export interface MuteAllParticipantsRequest {
-  instructorSessionId: string;    // UUID of instructor making request
-  classroomId: string;            // Target classroom (1-6)
-  muted: boolean;                 // True to mute all, false to unmute all
-  excludeInstructors?: boolean;   // Whether to exclude other instructors (default: true)
-}
-
-export interface CreateBreakoutRoomRequest {
-  instructorSessionId: string;    // UUID of instructor creating the room
-  parentClassroomId: string;      // Main classroom ID (1-6)
-  name: string;                   // Breakout room name (1-50 chars)
-  participantIds: string[];       // List of participant session IDs to include
-  maxDuration?: number;           // Maximum duration in minutes (5-120, default: 30)
-}
-
-export interface CreateBreakoutRoomResponse {
+/**
+ * Response from mute operation.
+ * WHY: Confirms action succeeded or provides error details.
+ */
+export interface MuteParticipantResponse {
   success: boolean;
-  breakoutRoom: BreakoutRoom;
-  dailyRoomUrl: string;           // Daily.co URL for the breakout room
+  message?: string;
+}
+
+// ============================================================================
+// HELPER TYPES
+// ============================================================================
+
+/**
+ * Actions available to instructors.
+ * WHY: Enum prevents typos and documents available instructor actions.
+ */
+export type InstructorAction = 
+  | 'mute-participant'
+  | 'unmute-participant'
+  | 'mute-all'           // Future enhancement
+  | 'create-breakout';   // Future enhancement (FR-010 deferred)
+
+/**
+ * Payload for instructor actions.
+ * WHY: Type-safe action dispatch pattern.
+ */
+export interface InstructorActionPayload {
+  action: InstructorAction;
+  targetSessionId?: string;  // For mute-participant
+  breakoutConfig?: {         // For create-breakout (future)
+    count: number;
+    assignment: 'manual' | 'automatic';
+  };
+}
+
+// ============================================================================
+// TYPE GUARDS & UTILITIES
+// ============================================================================
+
+/**
+ * Type guard to check if user is an instructor.
+ * WHY: Used to conditionally show instructor controls.
+ */
+export function isInstructor(session: UserSession): boolean {
+  return session.role === 'instructor';
 }
 
 /**
- * Participant permissions and status
- * Used for role-based UI rendering and access control
+ * Type guard to check if classroom is full.
+ * WHY: Prevents joining when at capacity (FR-018).
  */
-export interface ParticipantPermissions {
-  canMuteOthers: boolean;         // Can mute other participants
-  canCreateBreakouts: boolean;    // Can create breakout rooms
-  canEndBreakouts: boolean;       // Can end breakout rooms
-}
-
-export interface ParticipantStatus extends Participant {
-  permissions: ParticipantPermissions;
-  currentBreakoutRoom?: string;   // ID of current breakout room if in one
+export function isClassroomFull(
+  state: ClassroomState,
+  config: ClassroomConfig
+): boolean {
+  return state.participantCount >= config.maxParticipants;
 }
 
 /**
- * Error handling types
- * Standardized error responses from API
+ * Type guard to validate classroom ID.
+ * WHY: Ensures URL params map to actual classrooms.
  */
-export interface ApiError {
-  error: string;                  // Error type (e.g., "Bad Request", "Forbidden")
-  message: string;                // Human-readable error message
-  code?: string;                  // Optional error code (e.g., "INSUFFICIENT_PERMISSIONS")
-}
-
-export interface ClassroomFullError extends ApiError {
-  maxCapacity: number;            // Maximum capacity (50)
-  currentCount: number;           // Current participant count
+export function isValidClassroomId(id: string): boolean {
+  return /^cohort-[1-6]$/.test(id);
 }
 
 /**
- * Connection and state management types
- * For managing Daily.co connection lifecycle
+ * Validates user name meets requirements.
+ * WHY: Enforces FR-015 (1-50 character name requirement).
  */
-export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'error';
-export type MeetingState = 'new' | 'joining' | 'joined' | 'left' | 'error';
-
-/**
- * Utility types for form validation and UI state
- */
-export interface FormValidation {
-  isValid: boolean;
-  errors: Record<string, string>;
+export function isValidUserName(name: string): boolean {
+  return name.length >= 1 && name.length <= 50;
 }
 
-export interface LoadingState {
-  isLoading: boolean;
-  error?: string;
+/**
+ * Derives ClassroomState from Daily.co participants.
+ * WHY: Computes aggregate state from Daily's source of truth.
+ */
+export function deriveClassroomState(
+  config: ClassroomConfig,
+  participants: Participant[]
+): ClassroomState {
+  return {
+    id: config.id,
+    name: config.name,
+    participantCount: participants.length,
+    isAtCapacity: participants.length >= config.maxParticipants,
+    isActive: participants.length > 0,
+  };
 }

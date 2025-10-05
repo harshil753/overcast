@@ -4,8 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { DailyProvider, useDaily, useParticipantIds, useLocalParticipant } from '@daily-co/daily-react';
 import { DailyCall } from '@daily-co/daily-js';
 import { AppUser, ConnectionState, type Classroom } from '@/lib/types';
-import { UI_CONSTANTS } from '@/lib/constants';
-import { getDailyRoomById } from '@/lib/daily-config';
+import { getClassroomById } from '@/lib/daily-config';
 import { 
   parseDailyError, 
   hasInstructorPermissions,
@@ -22,13 +21,13 @@ let initializationPromise: Promise<DailyCall> | null = null;
 
 interface ClassroomProps {
   classroomId: string;
-  user: AppUser;
+  userSession: UserSession;
   onLeave: () => void;
 }
 
 interface ClassroomContentProps {
   classroomId: string;
-  user: AppUser;
+  userSession: UserSession;
   onLeave: () => void;
 }
 
@@ -140,7 +139,7 @@ function ErrorDisplay({ error, onRetry }: { error: string; onRetry: () => void }
  * Main classroom content component (inside DailyProvider)
  * Handles Daily.co integration and participant management
  */
-function ClassroomContent({ classroomId, user, onLeave }: ClassroomContentProps) {
+function ClassroomContent({ classroomId, userSession, onLeave }: ClassroomContentProps) {
   const daily = useDaily();
   const participantIds = useParticipantIds();
   const localParticipant = useLocalParticipant();
@@ -150,11 +149,11 @@ function ClassroomContent({ classroomId, user, onLeave }: ClassroomContentProps)
   const [isJoining, setIsJoining] = useState(true);
 
   // Get classroom configuration
-  const classroom = getDailyRoomById(classroomId);
+  const classroom = getClassroomById(classroomId);
   
   console.log('[Classroom] Looking for classroom ID:', classroomId);
   console.log('[Classroom] Found config:', classroom);
-  console.log('[Classroom] Using Daily room URL:', classroom?.url);
+  console.log('[Classroom] Using Daily room URL:', classroom?.dailyRoomUrl);
 
   // Join the Daily room
   const joinRoom = useCallback(async () => {
@@ -169,19 +168,19 @@ function ClassroomContent({ classroomId, user, onLeave }: ClassroomContentProps)
       setConnectionState('connecting');
 
       console.log('[joinRoom] Attempting to join room:', {
-        url: classroom.url,
-        userName: user.name,
-        role: user.role,
-        sessionId: user.sessionId
+        url: classroom.dailyRoomUrl,
+        userName: userSession.name,
+        role: userSession.role,
+        sessionId: userSession.sessionId
       });
 
       // Configure Daily call with user settings
       await daily.join({
-        url: classroom.url,
-        userName: user.name,
+        url: classroom.dailyRoomUrl,
+        userName: userSession.name,
         userData: {
-          role: user.role,
-          sessionId: user.sessionId
+          role: userSession.role,
+          sessionId: userSession.sessionId
         }
       });
       
@@ -202,7 +201,7 @@ function ClassroomContent({ classroomId, user, onLeave }: ClassroomContentProps)
 
     } catch (err) {
       console.error('[joinRoom] Failed to join Daily room:', err);
-      console.error('[joinRoom] Room URL that failed:', classroom.url);
+      console.error('[joinRoom] Room URL that failed:', classroom.dailyRoomUrl);
       console.error('[joinRoom] Error details:', {
         error: err,
         message: err instanceof Error ? err.message : 'Unknown error',
@@ -217,7 +216,7 @@ function ClassroomContent({ classroomId, user, onLeave }: ClassroomContentProps)
     } finally {
       setIsJoining(false);
     }
-  }, [daily, classroom, user.name, user.role, user.sessionId]);
+  }, [daily, classroom, userSession.name, userSession.role, userSession.sessionId]);
 
   // Handle Daily events
   useEffect(() => {
@@ -320,7 +319,7 @@ function ClassroomContent({ classroomId, user, onLeave }: ClassroomContentProps)
   const classroomData: Classroom = {
     id: classroom.id,
     name: classroom.name,
-    dailyRoomUrl: classroom.url,
+    dailyRoomUrl: classroom.dailyRoomUrl,
     maxCapacity: classroom.capacity
   };
 
@@ -331,7 +330,7 @@ function ClassroomContent({ classroomId, user, onLeave }: ClassroomContentProps)
         classroom={classroomData}
         participantCount={participantIds.length}
         connectionState={connectionState}
-        user={user}
+        user={userSession}
         onLeave={handleLeave}
       />
 
@@ -339,7 +338,7 @@ function ClassroomContent({ classroomId, user, onLeave }: ClassroomContentProps)
       <div className="flex-1 relative">
         {/* Loading State */}
         {isJoining && (
-          <LoadingOverlay message={UI_CONSTANTS.loadingMessages[0]} />
+          <LoadingOverlay message="Connecting to classroom..." />
         )}
 
         {/* Error State */}
@@ -361,10 +360,10 @@ function ClassroomContent({ classroomId, user, onLeave }: ClassroomContentProps)
             </div>
 
             {/* Instructor Controls - Only visible for instructors (T040: Role-based UI) */}
-            {user.role === 'instructor' && localParticipant && hasInstructorPermissions(localParticipant) && (
+            {userSession.role === 'instructor' && localParticipant && hasInstructorPermissions(localParticipant) && (
               <div className="border-t border-gray-700 p-4 bg-gray-900">
                 <InstructorControls
-                  instructor={user}
+                  instructorSessionId={userSession.sessionId}
                   classroomId={classroomId}
                   enabled={true}
                 />
@@ -406,7 +405,7 @@ function ClassroomContent({ classroomId, user, onLeave }: ClassroomContentProps)
  * Main Classroom component with DailyProvider wrapper
  * Provides Daily.co context to child components
  */
-export default function Classroom({ classroomId, user, onLeave }: ClassroomProps) {
+export default function Classroom({ classroomId, userSession, onLeave }: ClassroomProps) {
   const [dailyCall, setDailyCall] = useState<DailyCall | null>(null);
   const callRef = React.useRef<DailyCall | null>(null);
 
@@ -495,7 +494,7 @@ export default function Classroom({ classroomId, user, onLeave }: ClassroomProps
     <DailyProvider callObject={dailyCall}>
       <ClassroomContent 
         classroomId={classroomId} 
-        user={user} 
+        userSession={userSession} 
         onLeave={onLeave} 
       />
     </DailyProvider>

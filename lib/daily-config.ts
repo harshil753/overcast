@@ -1,96 +1,108 @@
 // Daily.co room configuration for Overcast Video Classroom Application
 // Manages the 6 pre-defined Daily room URLs for local development
+// WHY: Single source of truth for classroom configuration, environment-based
+
+import { Classroom } from './types';
+import { CLASSROOM_NAMES, MAX_PARTICIPANTS_PER_ROOM } from './constants';
 
 /**
- * Extract room name from Daily.co URL
- * WHY: Use the actual room name from the URL (e.g., "01-clippy") instead of generic names
- * This makes it easier to identify rooms and matches the Daily.co dashboard
+ * Validates that all required Daily.co room environment variables are set
+ * WHY: Fail fast with helpful error messages rather than runtime errors
  */
-function extractRoomName(url: string): string {
-  try {
-    const parts = url.split('/');
-    const roomName = parts[parts.length - 1];
-    return roomName || 'Unknown Room';
-  } catch {
-    return 'Unknown Room';
+function validateEnvironmentVariables(): void {
+  const requiredVars = [
+    'NEXT_PUBLIC_DAILY_ROOM_1',
+    'NEXT_PUBLIC_DAILY_ROOM_2',
+    'NEXT_PUBLIC_DAILY_ROOM_3',
+    'NEXT_PUBLIC_DAILY_ROOM_4',
+    'NEXT_PUBLIC_DAILY_ROOM_5',
+    'NEXT_PUBLIC_DAILY_ROOM_6',
+  ];
+
+  const missingVars = requiredVars.filter(varName => !process.env[varName]);
+
+  if (missingVars.length > 0) {
+    console.warn(
+      '⚠️ Missing environment variables (using fallback URLs):\n' +
+      missingVars.map(v => `  - ${v}`).join('\n') +
+      '\n\nFor production, set these in your .env.local file.' +
+      '\nSee env.example for the expected format.'
+    );
+    // Always use fallback URLs in development
+    console.warn('⚠️ Using fallback Daily.co URLs for development');
   }
 }
 
-// Daily room URL configuration
-// These URLs should match the environment variables in .env.local
-// WHY: Using NEXT_PUBLIC_ prefix because this is imported by client components
-// Client-side code can only access env vars with NEXT_PUBLIC_ prefix in Next.js
-const room1Url = process.env.NEXT_PUBLIC_DAILY_ROOM_1 || 'https://overcast.daily.co/cohort-1';
-const room2Url = process.env.NEXT_PUBLIC_DAILY_ROOM_2 || 'https://overcast.daily.co/cohort-2';
-const room3Url = process.env.NEXT_PUBLIC_DAILY_ROOM_3 || 'https://overcast.daily.co/cohort-3';
-const room4Url = process.env.NEXT_PUBLIC_DAILY_ROOM_4 || 'https://overcast.daily.co/cohort-4';
-const room5Url = process.env.NEXT_PUBLIC_DAILY_ROOM_5 || 'https://overcast.daily.co/cohort-5';
-const room6Url = process.env.NEXT_PUBLIC_DAILY_ROOM_6 || 'https://overcast.daily.co/cohort-6';
+// Validate environment variables on module load
+validateEnvironmentVariables();
 
-export const DAILY_ROOMS = [
+/**
+ * Array of all 6 classroom configurations
+ * Maps environment variables to Classroom objects with proper typing
+ * WHY: Type-safe configuration that components can import and use
+ */
+export const CLASSROOMS: Classroom[] = [
   {
-    id: '1',
-    name: extractRoomName(room1Url),
-    url: room1Url,
-    capacity: 50
+    id: 'cohort-1',
+    name: CLASSROOM_NAMES[0],
+    dailyRoomUrl: process.env.NEXT_PUBLIC_DAILY_ROOM_1 || 'https://overcast.daily.co/cohort-1',
+    maxCapacity: MAX_PARTICIPANTS_PER_ROOM,
   },
   {
-    id: '2', 
-    name: extractRoomName(room2Url),
-    url: room2Url,
-    capacity: 50
+    id: 'cohort-2',
+    name: CLASSROOM_NAMES[1],
+    dailyRoomUrl: process.env.NEXT_PUBLIC_DAILY_ROOM_2 || 'https://overcast.daily.co/cohort-2',
+    maxCapacity: MAX_PARTICIPANTS_PER_ROOM,
   },
   {
-    id: '3',
-    name: extractRoomName(room3Url), 
-    url: room3Url,
-    capacity: 50
+    id: 'cohort-3',
+    name: CLASSROOM_NAMES[2],
+    dailyRoomUrl: process.env.NEXT_PUBLIC_DAILY_ROOM_3 || 'https://overcast.daily.co/cohort-3',
+    maxCapacity: MAX_PARTICIPANTS_PER_ROOM,
   },
   {
-    id: '4',
-    name: extractRoomName(room4Url),
-    url: room4Url, 
-    capacity: 50
+    id: 'cohort-4',
+    name: CLASSROOM_NAMES[3],
+    dailyRoomUrl: process.env.NEXT_PUBLIC_DAILY_ROOM_4 || 'https://overcast.daily.co/cohort-4',
+    maxCapacity: MAX_PARTICIPANTS_PER_ROOM,
   },
   {
-    id: '5',
-    name: extractRoomName(room5Url),
-    url: room5Url,
-    capacity: 50
+    id: 'cohort-5',
+    name: CLASSROOM_NAMES[4],
+    dailyRoomUrl: process.env.NEXT_PUBLIC_DAILY_ROOM_5 || 'https://overcast.daily.co/cohort-5',
+    maxCapacity: MAX_PARTICIPANTS_PER_ROOM,
   },
   {
-    id: '6',
-    name: extractRoomName(room6Url),
-    url: room6Url,
-    capacity: 50
-  }
-] as const;
+    id: 'cohort-6',
+    name: CLASSROOM_NAMES[5],
+    dailyRoomUrl: process.env.NEXT_PUBLIC_DAILY_ROOM_6 || 'https://overcast.daily.co/cohort-6',
+    maxCapacity: MAX_PARTICIPANTS_PER_ROOM,
+  },
+];
 
-// Helper function to get room by ID
-export function getDailyRoomById(id: string) {
-  return DAILY_ROOMS.find(room => room.id === id);
+/**
+ * Get a specific classroom configuration by ID
+ * WHY: Validates classroom ID and returns undefined for invalid IDs
+ * 
+ * @param id - Classroom ID (1-6)
+ * @returns Classroom config or undefined if not found
+ */
+export function getClassroomById(id: string): Classroom | undefined {
+  return CLASSROOMS.find(classroom => classroom.id === id);
 }
 
-// Helper function to get all room URLs
-export function getAllDailyRoomUrls() {
-  return DAILY_ROOMS.map(room => room.url);
+/**
+ * Get all classroom IDs
+ * WHY: Useful for validation and iteration
+ */
+export function getAllClassroomIds(): string[] {
+  return CLASSROOMS.map(c => c.id);
 }
 
-// Daily.co API configuration
-export const DAILY_API_CONFIG = {
-  apiKey: process.env.DAILY_API_KEY,
-  baseUrl: 'https://api.daily.co/v1',
-  
-  // Default room properties for creating rooms via API
-  defaultRoomProperties: {
-    privacy: 'public' as const,
-    properties: {
-      max_participants: 50,
-      enable_chat: true,
-      enable_screenshare: true,
-      enable_recording: false, // Disabled for privacy
-      start_video_off: false,
-      start_audio_off: false
-    }
-  }
-};
+/**
+ * Get all Daily room URLs
+ * WHY: Useful for batch operations or validation
+ */
+export function getAllDailyRoomUrls(): string[] {
+  return CLASSROOMS.map(c => c.dailyRoomUrl);
+}

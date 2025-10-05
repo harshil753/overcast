@@ -1,23 +1,65 @@
-# Overcast Video Classroom Application
+# Overcast Video Classroom
 
-A futuristic video classroom application built with Next.js and Daily.co, featuring a main lobby with 6 classrooms for students and instructors to join live video sessions.
+<div align="center">
 
-## Features
+**A futuristic video classroom platform built with Next.js 15 and Daily.co**
 
-- **Main Lobby**: Browse 6 available classrooms with minimal, futuristic design
-- **Student Mode**: Join classrooms, view video feeds, switch between rooms
-- **Instructor Mode**: All student features plus participant muting and breakout room management
-- **Real-time Video**: Powered by Daily.co with support for up to 50 participants per classroom
-- **Futuristic Design**: Black/teal aesthetic inspired by the Overclock Accelerator brand
+[![Next.js](https://img.shields.io/badge/Next.js-15.5.4-black?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Daily.co](https://img.shields.io/badge/Daily.co-Video-00FFD1)](https://www.daily.co/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8?logo=tailwind-css)](https://tailwindcss.com/)
 
-## Quick Start
+*Powered by the Overclock Accelerator*
 
-### Prerequisites
-- Node.js 18+
-- Daily.co developer account and API key
-- Modern web browser (Chrome, Firefox, Safari, Edge)
+</div>
 
-### Installation
+---
+
+## 🚀 Features
+
+- **📺 Main Lobby**: Browse 6 available classrooms (Cohort 1-6) with real-time participant counts
+- **👨‍🎓 Student Mode**: Join classrooms, view video feeds, participate in discussions
+- **👨‍🏫 Instructor Mode**: All student features plus participant management and mute controls
+- **🎥 Real-time Video**: Powered by Daily.co with up to **10 participants per classroom**
+- **🎨 Futuristic Design**: Black/teal/orange aesthetic with smooth animations and glow effects
+- **♿ Accessible**: WCAG AA compliant with keyboard navigation and ARIA labels
+- **📱 Responsive**: Works seamlessly on desktop, tablet, and mobile devices
+
+---
+
+## 📋 Prerequisites
+
+Before you begin, ensure you have:
+
+- **Node.js 18+** ([Download](https://nodejs.org/))
+- **Daily.co Account** (free tier works) – [Sign up](https://dashboard.daily.co/signup)
+- **Modern Browser** (Chrome, Firefox, Safari, or Edge with WebRTC support)
+- **Git** for cloning the repository
+
+**Time to setup**: ~10 minutes ⏱️
+
+---
+
+## 🎯 Quick Start
+
+### 1. Create Daily.co Rooms
+
+1. Log into [Daily.co Dashboard](https://dashboard.daily.co/)
+2. Navigate to **Rooms** → **Create Room**
+3. Create **6 rooms** with these exact names:
+   ```
+   cohort-1
+   cohort-2
+   cohort-3
+   cohort-4
+   cohort-5
+   cohort-6
+   ```
+4. Copy each room URL (format: `https://your-domain.daily.co/cohort-X`)
+
+💡 **Why 6 rooms?** The application displays 6 classrooms per requirement FR-001.
+
+### 2. Clone and Install
 
 ```bash
 # Clone the repository
@@ -27,176 +69,264 @@ cd overcast
 # Install dependencies
 npm install
 
-# Set up environment variables
-cp env.example .env.local
-# Edit .env.local with your Daily.co API key and room URLs
+# Expected: "added 300+ packages in 30s"
+```
 
-# Start development server
+### 3. Configure Environment
+
+```bash
+# Copy the example environment file
+cp env.example .env.local
+
+# Edit with your favorite editor
+nano .env.local  # or code .env.local, vim .env.local
+```
+
+**Add your Daily.co configuration to `.env.local`:**
+
+```bash
+# Daily.co Room URLs (REQUIRED)
+NEXT_PUBLIC_DAILY_ROOM_1=https://your-domain.daily.co/cohort-1
+NEXT_PUBLIC_DAILY_ROOM_2=https://your-domain.daily.co/cohort-2
+NEXT_PUBLIC_DAILY_ROOM_3=https://your-domain.daily.co/cohort-3
+NEXT_PUBLIC_DAILY_ROOM_4=https://your-domain.daily.co/cohort-4
+NEXT_PUBLIC_DAILY_ROOM_5=https://your-domain.daily.co/cohort-5
+NEXT_PUBLIC_DAILY_ROOM_6=https://your-domain.daily.co/cohort-6
+
+# Application Configuration (REQUIRED)
+NEXT_PUBLIC_MAX_PARTICIPANTS_PER_ROOM=10
+```
+
+### 4. Start Development Server
+
+```bash
 npm run dev
 ```
 
-### Environment Setup
+Open [http://localhost:3000](http://localhost:3000) in your browser 🎉
 
-1. **Get Daily.co API Key**:
-   - Sign up at [Daily.co](https://dashboard.daily.co/developers)
-   - Create 6 room URLs for the classrooms
-   - Copy your API key
+You should see the Overcast landing page with name entry.
 
-2. **Configure Environment**:
-   ```bash
-   # Copy the example file
-   cp env.example .env.local
-   
-   # Edit .env.local with your actual values:
-   DAILY_API_KEY=your_actual_api_key
-   DAILY_ROOM_1=https://your-domain.daily.co/cohort-1
-   # ... (configure all 6 rooms)
-   ```
+---
 
-3. **Start Development**:
-   ```bash
-   npm run dev
-   ```
-   
-   Open [http://localhost:3000](http://localhost:3000) to see the lobby.
+## 🏗️ Technology Stack
 
-## Technology Stack
+| Category | Technology |
+|----------|-----------|
+| **Framework** | Next.js 15.5.4 (App Router) |
+| **Language** | TypeScript 5.x |
+| **Video** | Daily.co (@daily-co/daily-react, @daily-co/daily-js) |
+| **Styling** | Tailwind CSS v4 with custom theme |
+| **State** | React Context API + Jotai (Daily.co requirement) |
+| **Testing** | Jest, React Testing Library, Playwright |
+| **Deployment** | Vercel (serverless functions) |
 
-- **Frontend**: Next.js 15.5.4, React 19.1.0, TypeScript
-- **Video**: Daily.co (@daily-co/daily-react, @daily-co/daily-js)
-- **Styling**: Tailwind CSS v4 with custom futuristic theme
-- **State Management**: Jotai (required by Daily React)
-- **Testing**: Jest, React Testing Library, Playwright
-- **Deployment**: Vercel (serverless functions for API)
+---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
-app/
-├── page.tsx                  # Main lobby page
-├── classroom/[id]/page.tsx   # Dynamic classroom pages
-├── api/                      # Vercel serverless functions
-├── components/               # React components
-├── globals.css              # Futuristic theme styles
-└── layout.tsx               # Root layout with branding
-
-lib/
-├── types.ts                 # TypeScript definitions
-├── daily-config.ts          # Daily room configuration
-└── constants.ts             # App constants
-
-tests/
-├── contract/                # API contract tests
-├── integration/             # E2E user workflow tests
-└── unit/                    # Component unit tests
+overcast/
+├── app/
+│   ├── page.tsx                    # Landing page with name entry
+│   ├── lobby/
+│   │   └── page.tsx                # Lobby page wrapper
+│   ├── classroom/
+│   │   └── [id]/
+│   │       └── page.tsx            # Dynamic classroom pages (cohort-1 to cohort-6)
+│   ├── api/
+│   │   ├── rooms/
+│   │   │   └── route.ts            # GET /api/rooms endpoint
+│   │   └── participants/
+│   │       └── [sessionId]/
+│   │           └── mute/
+│   │               └── route.ts    # POST /api/participants/[id]/mute
+│   ├── components/
+│   │   ├── UserSessionProvider.tsx # Global session context
+│   │   ├── Lobby.tsx               # Lobby component with 6 classroom cards
+│   │   ├── Classroom.tsx           # Classroom component with Daily integration
+│   │   ├── VideoFeed.tsx           # Video grid display
+│   │   ├── InstructorControls.tsx  # Instructor-only controls
+│   │   └── ui/                     # Reusable UI components
+│   ├── globals.css                 # Futuristic theme (black/teal/orange)
+│   └── layout.tsx                  # Root layout with branding
+│
+├── lib/
+│   ├── types.ts                    # TypeScript type definitions
+│   ├── constants.ts                # Application constants
+│   ├── daily-config.ts             # Daily.co room configuration
+│   └── utils.ts                    # Utility functions
+│
+├── tests/
+│   ├── contract/                   # API contract tests
+│   ├── integration/                # E2E Playwright tests
+│   └── unit/                       # Component unit tests
+│
+├── specs/                          # Feature specifications
+│   └── 003-overcast-video-classroom/
+│       ├── spec.md                 # Feature specification
+│       ├── plan.md                 # Implementation plan
+│       ├── tasks.md                # Task breakdown
+│       ├── data-model.md           # Data model documentation
+│       └── contracts/              # API contract specifications
+│
+└── .specify/                       # SpecStory configuration
+    └── memory/
+        └── constitution.md         # Project principles
 ```
 
-## Development Workflow
+---
 
-### Constitutional Principles
-This project follows the Overcast Constitution emphasizing:
-- **Simplicity First**: Choose straightforward solutions over clever ones
-- **Single File Preference**: Keep related functionality together
-- **Comment-Driven Development**: Explain WHY decisions were made
-- **Newcomer-Friendly**: Code should be accessible to junior developers
-- **Test-Driven Clarity**: Tests serve as living documentation
+## 🎓 User Workflows
 
-### Testing
+### Student Journey
+
+1. **Landing Page**: Enter your name (1-50 characters, no password required)
+2. **Lobby**: View 6 classrooms with participant counts
+3. **Join Classroom**: Click a classroom card to join as student
+4. **Video Session**: See live video feeds of all participants
+5. **Controls**: Mute/unmute yourself, toggle video
+6. **Switch Rooms**: Return to lobby anytime to join a different classroom
+
+### Instructor Journey
+
+1. **Landing Page**: Enter your name
+2. **Lobby**: Toggle to "Instructor" mode
+3. **Join Classroom**: Click a classroom card to join as instructor
+4. **Instructor Controls**: Access participant management panel
+5. **Manage Participants**: Mute/unmute individual participants
+6. **Equal Privileges**: All instructors have the same controls (FR-012)
+
+---
+
+## 🧪 Testing
+
+### Run All Tests
+
 ```bash
-# Run all tests
 npm test
+```
 
-# Run specific test types
-npm test -- tests/contract     # API contract tests
-npm test -- tests/integration  # E2E workflow tests
-npm test -- tests/unit         # Component unit tests
+### Test by Type
 
-# Run tests in watch mode
+```bash
+# API contract tests (validates endpoints match specification)
+npm run test:contract
+
+# Integration tests (E2E user workflows with Playwright)
+npm run test:integration
+
+# Unit tests (component and utility function tests)
+npm run test:unit
+
+# Watch mode (for development)
 npm test -- --watch
 ```
 
+### Test Coverage
+
+- **Contract Tests**: Validate API responses match OpenAPI specifications
+- **Integration Tests**: Complete student and instructor journeys (17 test cases)
+- **Unit Tests**: Component behavior and utility functions
+- **E2E Tests**: Browser automation with Playwright
+
+---
+
+## 🎨 Design System
+
+### Color Palette
+
+| Color | Hex | Usage |
+|-------|-----|-------|
+| **Black** | `#000000` | Background |
+| **Teal** | `#00FFD1` | Primary actions, highlights |
+| **Orange** | `#FFBD17` | Secondary actions, urgency |
+| **Dark Gray** | `#1a1a1a` | Cards, panels |
+| **Medium Gray** | `#333333` | Borders |
+| **Light Gray** | `#666666` | Muted text |
+
+### Typography
+
+- **Font Family**: Geist Sans (geometric, modern)
+- **Headings**: Bold, uppercase, wide letter-spacing
+- **Body**: Regular weight, high contrast (white on black)
+
+### Components
+
+- **Hover Effects**: Teal glow, translate-Y animation
+- **Transitions**: Smooth 200-300ms for all state changes
+- **Borders**: Subtle gray, teal on hover/focus
+- **Shadows**: Teal glow for active elements
+
+---
+
+## 🔧 Development
+
 ### Code Quality
+
 ```bash
 # Lint code
 npm run lint
 
-# Format code
-npm run format
-
 # Type check
-npm run type-check
+npx tsc --noEmit
+
+# Format code (if configured)
+npm run format
 ```
 
-## User Workflows
+### Constitutional Principles
 
-### Student Journey
-1. Open application → see main lobby with 6 classrooms
-2. Click classroom → enter name → join as student
-3. View live video feed with other participants
-4. Return to lobby or switch to different classroom
+This project follows the **Overcast Constitution** emphasizing:
 
-### Instructor Journey
-1. Toggle to "Instructors" mode in lobby
-2. Join classroom as instructor → get additional controls
-3. Mute/unmute individual participants or all participants
-4. Create breakout rooms for smaller group discussions
-5. Manage classroom with equal privileges alongside other instructors
+1. **Simplicity First**: Straightforward solutions over clever ones
+2. **Single File Preference**: Keep related functionality together
+3. **Comment-Driven Development**: Explain WHY, not just WHAT
+4. **Newcomer-Friendly**: Code accessible to junior developers
+5. **Test-Driven Clarity**: Tests as living documentation
 
-## API Endpoints
+See [`.specify/memory/constitution.md`](.specify/memory/constitution.md) for details.
 
-- `GET /api/rooms` - List all 6 classrooms with status
-- `POST /api/rooms/{id}/join` - Join a classroom
-- `POST /api/rooms/{id}/leave` - Leave a classroom
-- `POST /api/participants/{sessionId}/mute` - Mute/unmute participant
-- `POST /api/participants/mute-all` - Mute all participants
-- `POST /api/breakout-rooms` - Create breakout room
+### Key Development Practices
 
-## Deployment
+- ✅ Write tests before implementation (TDD)
+- ✅ Add WHY comments for complex logic
+- ✅ Use TypeScript for type safety
+- ✅ Validate with linter and type checker
+- ✅ Test on multiple browsers
+
+---
+
+## 🚀 Deployment
 
 ### Vercel (Recommended)
 
-This application is optimized for deployment on Vercel with automatic serverless function scaling and edge network distribution.
-
 #### Quick Deploy
 
-1. **Connect your repository**:
-   ```bash
-   # Install Vercel CLI (if not already installed)
-   npm i -g vercel
-   
-   # Login to Vercel
-   vercel login
-   
-   # Deploy
-   vercel
-   ```
+```bash
+# Install Vercel CLI
+npm i -g vercel
 
-2. **Set environment variables** in Vercel Dashboard:
-   - Go to your project → Settings → Environment Variables
-   - Add the following variables for Production, Preview, and Development:
+# Login
+vercel login
 
-#### Required Environment Variables
+# Deploy
+vercel
+```
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DAILY_API_KEY` | Your Daily.co API key from dashboard | `abc123...` |
-| `DAILY_ROOM_1` | Production room URL for Cohort 1 | `https://overcast.daily.co/cohort-1` |
-| `DAILY_ROOM_2` | Production room URL for Cohort 2 | `https://overcast.daily.co/cohort-2` |
-| `DAILY_ROOM_3` | Production room URL for Cohort 3 | `https://overcast.daily.co/cohort-3` |
-| `DAILY_ROOM_4` | Production room URL for Cohort 4 | `https://overcast.daily.co/cohort-4` |
-| `DAILY_ROOM_5` | Production room URL for Cohort 5 | `https://overcast.daily.co/cohort-5` |
-| `DAILY_ROOM_6` | Production room URL for Cohort 6 | `https://overcast.daily.co/cohort-6` |
-| `NEXT_PUBLIC_APP_NAME` | Application display name | `Overcast` |
-| `NEXT_PUBLIC_MAX_PARTICIPANTS_PER_ROOM` | Max participants per classroom | `50` |
+#### Environment Variables
 
-#### Deployment Configuration
+Set these in Vercel Dashboard → Project → Settings → Environment Variables:
 
-The `vercel.json` configuration includes:
-- **Optimized serverless functions**: 1024MB memory, 10s timeout
-- **Security headers**: Content security, XSS protection, frame options
-- **CORS headers**: Configured for Daily.co video integration
-- **Permissions**: Camera, microphone, and display capture enabled
-- **Region**: US East (iad1) for optimal Daily.co connectivity
+| Variable | Required | Example |
+|----------|----------|---------|
+| `NEXT_PUBLIC_DAILY_ROOM_1` | ✅ | `https://overcast.daily.co/cohort-1` |
+| `NEXT_PUBLIC_DAILY_ROOM_2` | ✅ | `https://overcast.daily.co/cohort-2` |
+| `NEXT_PUBLIC_DAILY_ROOM_3` | ✅ | `https://overcast.daily.co/cohort-3` |
+| `NEXT_PUBLIC_DAILY_ROOM_4` | ✅ | `https://overcast.daily.co/cohort-4` |
+| `NEXT_PUBLIC_DAILY_ROOM_5` | ✅ | `https://overcast.daily.co/cohort-5` |
+| `NEXT_PUBLIC_DAILY_ROOM_6` | ✅ | `https://overcast.daily.co/cohort-6` |
+| `NEXT_PUBLIC_MAX_PARTICIPANTS_PER_ROOM` | ✅ | `10` |
 
 #### Production Build
 
@@ -209,61 +339,117 @@ npm start
 vercel --prod
 ```
 
-#### Monitoring and Logs
+---
 
-- **View logs**: `vercel logs <deployment-url>`
-- **Real-time logs**: Vercel Dashboard → Your Project → Deployments → Logs
-- **Error tracking**: Structured JSON logs in production (see `lib/utils.ts` Logger)
+## 🐛 Troubleshooting
 
-#### Domain Configuration
+### Common Issues
 
-1. Go to Vercel Dashboard → Your Project → Settings → Domains
-2. Add your custom domain (e.g., `overcast.yourcompany.com`)
-3. Follow DNS configuration instructions
-4. SSL certificates are automatically provisioned
+**"Failed to load classrooms"**
+- ✅ Check environment variables are set correctly
+- ✅ Verify Daily.co room URLs are accessible
+- ✅ Check browser console for CORS errors
 
-#### Performance Optimization
+**Video not connecting**
+- ✅ Ensure browser has camera/microphone permissions
+- ✅ Verify Daily.co rooms exist and are accessible
+- ✅ Check network connectivity
 
-The deployment is configured for:
-- ✅ Edge caching for static assets
-- ✅ Serverless function cold start optimization
-- ✅ Automatic image optimization via Next.js
-- ✅ Code splitting and lazy loading
-- ✅ Gzip/Brotli compression
+**Build fails**
+- ✅ Run `npm install` to ensure dependencies are installed
+- ✅ Check TypeScript errors with `npx tsc --noEmit`
+- ✅ Verify all required environment variables are set
 
-#### Troubleshooting
+**Tests failing**
+- ✅ Ensure dev server is running for integration tests
+- ✅ Check that Daily.co credentials are valid
+- ✅ Run tests individually to isolate issues
 
-**Build fails**:
-- Check environment variables are set correctly
-- Verify Daily.co API key is valid
-- Review build logs in Vercel Dashboard
+---
 
-**Video not connecting**:
-- Verify DAILY_ROOM_* URLs are accessible
-- Check browser console for CORS errors
-- Ensure Permissions-Policy headers allow camera/microphone
+## 📚 API Endpoints
 
-**Slow performance**:
-- Check serverless function execution time in logs
-- Monitor Daily.co connection quality
-- Review Network tab in browser DevTools
+### GET /api/rooms
 
-## Contributing
+Returns all 6 classrooms with current status.
 
-1. Follow the constitutional principles (see `.specify/memory/constitution.md`)
-2. Write tests before implementation (TDD)
+**Response:**
+```json
+{
+  "classrooms": [
+    {
+      "id": "cohort-1",
+      "name": "Cohort 1",
+      "participantCount": 5,
+      "isAtCapacity": false
+    },
+    // ... 5 more classrooms
+  ]
+}
+```
+
+### POST /api/participants/[sessionId]/mute
+
+Mute or unmute a participant (instructor only).
+
+**Request:**
+```json
+{
+  "muted": true,
+  "instructorSessionId": "instructor-session-123"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+---
+
+## 📖 Documentation
+
+- **Feature Spec**: [`specs/003-overcast-video-classroom/spec.md`](specs/003-overcast-video-classroom/spec.md)
+- **Implementation Plan**: [`specs/003-overcast-video-classroom/plan.md`](specs/003-overcast-video-classroom/plan.md)
+- **Task Breakdown**: [`specs/003-overcast-video-classroom/tasks.md`](specs/003-overcast-video-classroom/tasks.md)
+- **Data Model**: [`specs/003-overcast-video-classroom/data-model.md`](specs/003-overcast-video-classroom/data-model.md)
+- **API Contracts**: [`specs/003-overcast-video-classroom/contracts/`](specs/003-overcast-video-classroom/contracts/)
+- **Quickstart Guide**: [`specs/003-overcast-video-classroom/quickstart.md`](specs/003-overcast-video-classroom/quickstart.md)
+
+---
+
+## 🤝 Contributing
+
+1. Follow the [Overcast Constitution](.specify/memory/constitution.md)
+2. Write tests before implementation (TDD approach)
 3. Use descriptive commit messages
-4. Ensure code passes linting and type checking
-5. Update documentation for new features
+4. Ensure code passes linting (`npm run lint`)
+5. Type check with TypeScript (`npx tsc --noEmit`)
+6. Update documentation for new features
 
-## Support
+---
 
-For Daily.co integration issues, refer to:
+## 📄 License
+
+This project is part of the **Overclock Accelerator** program.
+
+---
+
+## 🔗 Resources
+
 - [Daily.co Documentation](https://docs.daily.co/)
 - [Daily React Hooks](https://github.com/daily-co/daily-react)
+- [Next.js 15 Documentation](https://nextjs.org/docs)
+- [Tailwind CSS v4](https://tailwindcss.com/docs)
 
-## License
+---
 
-This project is part of the Overclock Accelerator program.
+<div align="center">
 
-**Powered by the Overclock Accelerator**
+**Built with ❤️ by the Overclock Accelerator Team**
+
+*Empowering the next generation of AI engineers*
+
+</div>

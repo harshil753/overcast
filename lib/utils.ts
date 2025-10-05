@@ -67,6 +67,43 @@ export function validateClassroomId(classroomId: string): boolean {
 }
 
 /**
+ * Formats participant count for display
+ * Shows count with proper pluralization
+ * WHY: Consistent formatting across UI components
+ * 
+ * @param count - Number of participants
+ * @returns Formatted string (e.g., "1 participant", "5 participants")
+ */
+export function formatParticipantCount(count: number): string {
+  if (count === 0) {
+    return 'No participants';
+  }
+  if (count === 1) {
+    return '1 participant';
+  }
+  return `${count} participants`;
+}
+
+/**
+ * Gets the display name for a classroom by ID
+ * WHY: Centralizes classroom name lookup logic
+ * 
+ * @param id - Classroom ID (1-6)
+ * @returns Display name from constants or fallback
+ */
+export function getClassroomDisplayName(id: string): string {
+  // Import constants dynamically to avoid circular dependencies
+  const { CLASSROOM_NAMES } = require('./constants');
+  const index = parseInt(id, 10) - 1;
+  
+  if (index >= 0 && index < CLASSROOM_NAMES.length) {
+    return CLASSROOM_NAMES[index];
+  }
+  
+  return `Classroom ${id}`;
+}
+
+/**
  * Formats a timestamp for display
  * Converts Date to human-readable format
  * 

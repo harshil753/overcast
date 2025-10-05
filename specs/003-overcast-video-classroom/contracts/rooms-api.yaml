@@ -1,0 +1,172 @@
+openapi: 3.0.3
+info:
+  title: Overcast Rooms API
+  description: API for listing and querying classroom/cohort status
+  version: 1.0.0
+  contact:
+    name: Overcast API
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development
+  - url: https://overcast.vercel.app/api
+    description: Production (Vercel)
+
+paths:
+  /rooms:
+    get:
+      summary: List all available classrooms
+      description: |
+        Returns configuration and current status for all 6 classrooms (Cohort 1-6).
+        WHY: Lobby needs this data to display classroom grid with participant counts.
+        
+        **Functional Requirements**: FR-001, FR-011, FR-016, FR-018
+      operationId: listRooms
+      tags:
+        - Rooms
+      responses:
+        '200':
+          description: Successfully retrieved classroom list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomsResponse'
+              examples:
+                typical:
+                  summary: Typical response with mixed occupancy
+                  value:
+                    classrooms:
+                      - id: cohort-1
+                        name: Cohort 1
+                        participantCount: 5
+                        isAtCapacity: false
+                      - id: cohort-2
+                        name: Cohort 2
+                        participantCount: 10
+                        isAtCapacity: true
+                      - id: cohort-3
+                        name: Cohort 3
+                        participantCount: 0
+                        isAtCapacity: false
+                      - id: cohort-4
+                        name: Cohort 4
+                        participantCount: 3
+                        isAtCapacity: false
+                      - id: cohort-5
+                        name: Cohort 5
+                        participantCount: 7
+                        isAtCapacity: false
+                      - id: cohort-6
+                        name: Cohort 6
+                        participantCount: 1
+                        isAtCapacity: false
+                empty:
+                  summary: All classrooms empty (no active sessions)
+                  value:
+                    classrooms:
+                      - id: cohort-1
+                        name: Cohort 1
+                        participantCount: 0
+                        isAtCapacity: false
+                      - id: cohort-2
+                        name: Cohort 2
+                        participantCount: 0
+                        isAtCapacity: false
+                      - id: cohort-3
+                        name: Cohort 3
+                        participantCount: 0
+                        isAtCapacity: false
+                      - id: cohort-4
+                        name: Cohort 4
+                        participantCount: 0
+                        isAtCapacity: false
+                      - id: cohort-5
+                        name: Cohort 5
+                        participantCount: 0
+                        isAtCapacity: false
+                      - id: cohort-6
+                        name: Cohort 6
+                        participantCount: 0
+                        isAtCapacity: false
+        '500':
+          description: Server error (e.g., failed to load configuration)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    RoomsResponse:
+      type: object
+      required:
+        - classrooms
+      properties:
+        classrooms:
+          type: array
+          description: Array of all 6 available classrooms
+          minItems: 6
+          maxItems: 6
+          items:
+            $ref: '#/components/schemas/ClassroomSummary'
+      example:
+        classrooms:
+          - id: cohort-1
+            name: Cohort 1
+            participantCount: 5
+            isAtCapacity: false
+
+    ClassroomSummary:
+      type: object
+      required:
+        - id
+        - name
+        - participantCount
+        - isAtCapacity
+      properties:
+        id:
+          type: string
+          pattern: '^cohort-[1-6]$'
+          description: Unique classroom identifier
+          example: cohort-1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Human-readable classroom name
+          example: Cohort 1
+        participantCount:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: Current number of participants in classroom
+          example: 5
+        isAtCapacity:
+          type: boolean
+          description: |
+            Whether classroom has reached maximum capacity (10 participants).
+            WHY: Used to disable "Join" button when full (FR-018).
+          example: false
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: Failed to load classroom configuration
+        code:
+          type: string
+          description: Machine-readable error code
+          example: CONFIG_LOAD_ERROR
+        details:
+          type: object
+          description: Additional error context
+          additionalProperties: true
+
+tags:
+  - name: Rooms
+    description: Classroom listing and status endpoints
+

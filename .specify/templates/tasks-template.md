@@ -94,9 +94,8 @@ Task: "Integration test auth in tests/integration/test_auth.py"
 ## Notes
 - [P] tasks = different files, no dependencies
 - Verify tests fail before implementing
-- Commit after each task with clear, educational commit messages
-- Avoid: vague tasks, same file conflicts, unnecessary file splits
-- Prioritize: single-file solutions, clear comments, newcomer-friendly patterns
+- Commit after each task
+- Avoid: vague tasks, same file conflicts
 
 ## Task Generation Rules
 *Applied during main() execution*
@@ -126,9 +125,3 @@ Task: "Integration test auth in tests/integration/test_auth.py"
 - [ ] Parallel tasks truly independent
 - [ ] Each task specifies exact file path
 - [ ] No task modifies same file as another [P] task
-
-### Constitution Compliance
-- [ ] Tasks favor single-file implementations where appropriate
-- [ ] Complex tasks include comment/documentation requirements
-- [ ] Task descriptions use newcomer-friendly language
-- [ ] No unnecessary file splits or over-engineering

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { UserSessionProvider } from "@/app/components/UserSessionProvider";
 
 /**
  * Font configuration using Geist font family
@@ -40,16 +41,18 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "Overcast",
   },
-  
-  // Theme color for browser chrome (mobile)
+};
+
+/**
+ * Viewport configuration
+ * 
+ * WHY: Next.js 15+ requires viewport to be exported separately from metadata
+ */
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
   themeColor: "#000000",
-  
-  // Viewport configuration
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-  },
 };
 
 /**
@@ -71,9 +74,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white min-h-screen flex flex-col`}
       >
-        <div className="flex-1">
-          {children}
-        </div>
+        <UserSessionProvider>
+          <div className="flex-1">
+            {children}
+          </div>
         
         {/* Footer with Overclock Accelerator branding */}
         <footer className="border-t border-gray-800 bg-black py-6 mt-auto">
@@ -98,6 +102,7 @@ export default function RootLayout({
             </div>
           </div>
         </footer>
+        </UserSessionProvider>
       </body>
     </html>
   );

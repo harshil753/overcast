@@ -93,6 +93,7 @@ export function formatParticipantCount(count: number): string {
  */
 export function getClassroomDisplayName(id: string): string {
   // Import constants dynamically to avoid circular dependencies
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { CLASSROOM_NAMES } = require('./constants');
   const index = parseInt(id, 10) - 1;
   

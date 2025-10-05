@@ -90,7 +90,7 @@ async function verifyInstructorPermissions(
  * MVP: Returns true (assumes participant exists)
  * Production: Would query participant database or Daily.co API
  */
-async function participantExists(sessionId: string): Promise<boolean> {
+async function participantExists(_sessionId: string): Promise<boolean> {
   // MVP: Assume participant exists for local development
   // In production, this would:
   // 1. Query participant database by sessionId

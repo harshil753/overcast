@@ -28,7 +28,7 @@ interface RouteParams {
  * Create a Daily.co meeting token for authenticated access
  * Tokens can include permissions and user metadata
  */
-async function createDailyToken(roomName: string, userName: string, isInstructor: boolean) {
+async function createDailyToken(_roomName: string, _userName: string, _isInstructor: boolean) {
   try {
     // For local development without API key, return undefined
     // Daily rooms can be accessed without tokens if configured as public
@@ -43,7 +43,7 @@ async function createDailyToken(roomName: string, userName: string, isInstructor
  * Check if classroom has capacity for new participant
  * In production, this would query actual participant count
  */
-async function checkRoomCapacity(roomUrl: string, maxCapacity: number): Promise<boolean> {
+async function checkRoomCapacity(_roomUrl: string, _maxCapacity: number): Promise<boolean> {
   try {
     // For local development, always allow join
     return true;

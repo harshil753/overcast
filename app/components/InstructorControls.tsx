@@ -29,7 +29,7 @@ interface InstructorControlsProps {
 
 export default function InstructorControls({
   instructorSessionId,
-  classroomId,
+  classroomId: _classroomId,
   onMuteParticipant
 }: InstructorControlsProps) {
   // Get participant IDs from Daily.co hook

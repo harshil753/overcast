@@ -13,7 +13,7 @@ import { RoomsResponse } from '@/lib/types';
  */
 export default function LobbyPage() {
   const router = useRouter();
-  const [classroomData, setClassroomData] = useState<RoomsResponse | null>(null);
+  const [_classroomData, setClassroomData] = useState<RoomsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

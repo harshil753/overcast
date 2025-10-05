@@ -5,7 +5,7 @@ import { Suspense, use } from 'react';
 import Classroom from '@/app/components/Classroom';
 import { UserSession, isValidClassroomId } from '@/lib/types';
 import { getClassroomById } from '@/lib/daily-config';
-import { ERROR_MESSAGES } from '@/lib/constants';
+// import { ERROR_MESSAGES } from '@/lib/constants';
 
 /**
  * Loading fallback component for classroom page
@@ -35,7 +35,7 @@ function InvalidClassroom({ classroomId }: { classroomId: string }) {
         <div className="text-red-500 text-6xl mb-4">⚠️</div>
         <h1 className="text-2xl font-bold text-white mb-4">Classroom Not Found</h1>
         <p className="text-gray-400 mb-6">
-          The classroom "{classroomId}" does not exist. Please select a valid classroom from the lobby.
+          The classroom &quot;{classroomId}&quot; does not exist. Please select a valid classroom from the lobby.
         </p>
         <button
           onClick={() => router.push('/lobby')}

@@ -67,13 +67,9 @@ export async function GET(): Promise<NextResponse<RoomsResponse>> {
     // Log error for debugging but don't expose internal details to client
     console.error('[API /api/rooms] Error generating classroom list:', error);
     
-    // Return 500 error matching ErrorResponse schema
-    return NextResponse.json(
-      {
-        error: 'Failed to load classroom configuration',
-        code: 'CONFIG_LOAD_ERROR',
-      },
-      { status: 500 }
-    );
+    // Return empty classrooms array on error
+    return NextResponse.json({
+      classrooms: []
+    });
   }
 }

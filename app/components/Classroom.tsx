@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { DailyProvider, useDaily, useParticipantIds, useLocalParticipant } from '@daily-co/daily-react';
 import { DailyCall } from '@daily-co/daily-js';
-import { AppUser, ConnectionState, type Classroom } from '@/lib/types';
+import { UserSession, ConnectionState, type Classroom } from '@/lib/types';
 import { getClassroomById } from '@/lib/daily-config';
 import { 
   parseDailyError, 
@@ -65,7 +65,7 @@ function ClassroomHeader({
   classroom: Classroom;
   participantCount: number;
   connectionState: ConnectionState;
-  user: AppUser;
+  user: UserSession;
   onLeave: () => void;
 }) {
   return (
@@ -320,7 +320,7 @@ function ClassroomContent({ classroomId, userSession, onLeave }: ClassroomConten
     id: classroom.id,
     name: classroom.name,
     dailyRoomUrl: classroom.dailyRoomUrl,
-    maxCapacity: classroom.capacity
+    maxCapacity: classroom.maxCapacity
   };
 
   return (
@@ -363,9 +363,8 @@ function ClassroomContent({ classroomId, userSession, onLeave }: ClassroomConten
             {userSession.role === 'instructor' && localParticipant && hasInstructorPermissions(localParticipant) && (
               <div className="border-t border-gray-700 p-4 bg-gray-900">
                 <InstructorControls
-                  instructorSessionId={userSession.sessionId}
+                  instructorSessionId={userSession.sessionId || ''}
                   classroomId={classroomId}
-                  enabled={true}
                 />
               </div>
             )}

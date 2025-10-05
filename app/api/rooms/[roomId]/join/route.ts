@@ -145,14 +145,20 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Create participant object
     const participant: Participant = {
-      sessionId,
-      name,
-      role: body.role,
-      classroomId: roomId,
-      isAudioMuted: false,
-      isVideoEnabled: true,
-      connectionState: 'connecting',
-      joinedAt: new Date()
+      session_id: sessionId,
+      user_name: name,
+      local: false,
+      owner: false,
+      tracks: {
+        video: {
+          subscribed: false,
+          state: 'off'
+        },
+        audio: {
+          subscribed: false,
+          state: 'off'
+        }
+      }
     };
 
     // Return success response with participant data and room URL

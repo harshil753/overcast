@@ -149,6 +149,69 @@ export interface MuteParticipantRequest {
 }
 
 /**
+ * Request body to mute all participants in a classroom.
+ * WHY: Instructor action to mute all students at once (FR-009).
+ */
+export interface MuteAllParticipantsRequest {
+  /** Whether to mute (true) or unmute (false) */
+  muted: boolean;
+  
+  /** Session ID of instructor making request (for authorization) */
+  instructorSessionId: string;
+  
+  /** Classroom ID (1-6) */
+  classroomId: string;
+  
+  /** Whether to exclude instructors from mute action (default: true) */
+  excludeInstructors?: boolean;
+}
+
+/**
+ * Request body to join a classroom.
+ * WHY: Student/instructor action to join a classroom (FR-008).
+ */
+export interface JoinRoomRequest {
+  /** User's display name */
+  name: string;
+  
+  /** User's role (student or instructor) */
+  role: 'student' | 'instructor';
+}
+
+/**
+ * Request body to leave a classroom.
+ * WHY: Student/instructor action to leave a classroom (FR-008).
+ */
+export interface LeaveRoomRequest {
+  /** Session ID of the user leaving */
+  sessionId: string;
+}
+
+/**
+ * Connection state for Daily.co video calls.
+ * WHY: Track connection status for UI feedback.
+ */
+export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'error';
+
+/**
+ * Classroom configuration for video calls.
+ * WHY: Core classroom data needed for Daily.co integration.
+ */
+export interface Classroom {
+  /** Unique classroom identifier */
+  id: string;
+  
+  /** Display name of the classroom */
+  name: string;
+  
+  /** Daily.co room URL for video calls */
+  dailyRoomUrl: string;
+  
+  /** Maximum number of participants allowed */
+  maxCapacity: number;
+}
+
+/**
  * Response from mute operation.
  * WHY: Confirms action succeeded or provides error details.
  */

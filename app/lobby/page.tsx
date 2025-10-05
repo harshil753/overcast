@@ -1,9 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Lobby from '@/app/components/Lobby';
-import { AppUser } from '@/lib/types';
 import { RoomsResponse } from '@/lib/types';
 
 /**
@@ -12,8 +10,7 @@ import { RoomsResponse } from '@/lib/types';
  * Handles loading and error states for classroom data
  */
 export default function LobbyPage() {
-  const router = useRouter();
-  const [_classroomData, setClassroomData] = useState<RoomsResponse | null>(null);
+  const [, setClassroomData] = useState<RoomsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,22 +40,6 @@ export default function LobbyPage() {
     fetchClassroomData();
   }, []);
 
-  /**
-   * Handle classroom join - navigate to classroom page
-   * Creates user session and navigates to the selected classroom
-   */
-  const handleJoinClassroom = (classroomId: string, user: AppUser) => {
-    try {
-      // Store user session in localStorage for persistence
-      localStorage.setItem('userSession', JSON.stringify(user));
-      
-      // Navigate to classroom page
-      router.push(`/classroom/${classroomId}`);
-    } catch (error) {
-      console.error('Failed to join classroom:', error);
-      setError('Failed to join classroom. Please try again.');
-    }
-  };
 
   // Loading state
   if (isLoading) {
@@ -96,7 +77,7 @@ export default function LobbyPage() {
   // Main lobby view with classroom data
   return (
     <div className="min-h-screen bg-black">
-      <Lobby onJoinClassroom={handleJoinClassroom} />
+      <Lobby />
     </div>
   );
 }

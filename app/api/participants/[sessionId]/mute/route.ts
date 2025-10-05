@@ -56,7 +56,7 @@ interface RouteParams {
 function isValidSessionId(sessionId: string): boolean {
   // Allow flexible format for MVP - can be UUID or any reasonable session identifier
   // In production, enforce strict UUID validation
-  return sessionId && sessionId.length > 0 && sessionId.length < 256;
+  return Boolean(sessionId && sessionId.length > 0 && sessionId.length < 256);
 }
 
 /**

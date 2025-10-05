@@ -16,7 +16,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getDailyRoomById } from '@/lib/daily-config';
+import { getClassroomById } from '@/lib/daily-config';
 import { LeaveRoomRequest } from '@/lib/types';
 
 interface RouteParams {
@@ -51,7 +51,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Verify room exists
-    const room = getDailyRoomById(roomId);
+    const room = getClassroomById(`cohort-${roomId}`);
     
     if (!room) {
       return NextResponse.json(

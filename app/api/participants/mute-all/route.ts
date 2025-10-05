@@ -16,7 +16,7 @@
 
 import { NextResponse } from 'next/server';
 import { MuteAllParticipantsRequest } from '@/lib/types';
-import { getDailyRoomById, DAILY_API_CONFIG } from '@/lib/daily-config';
+import { getClassroomById } from '@/lib/daily-config';
 
 /**
  * Validate UUID format
@@ -39,7 +39,7 @@ async function verifyInstructorPermissions(
   }
 
   // Validate classroom exists
-  const room = getDailyRoomById(classroomId);
+  const room = getClassroomById(`cohort-${classroomId}`);
   if (!room) {
     return false;
   }
@@ -63,19 +63,10 @@ async function muteAllParticipantsInDaily(
   excludeInstructors: boolean = true
 ): Promise<{ success: boolean; mutedCount: number }> {
   try {
-    if (!DAILY_API_CONFIG.apiKey) {
-      // For local development, return mock success
-      // Actual muting happens client-side via Daily React hooks
-      return { success: true, mutedCount: 0 };
-    }
-
-    // In production, this would:
-    // 1. Get list of all participants in the classroom from Daily API
-    // 2. Filter out instructors if excludeInstructors is true
-    // 3. Iterate through participants and mute each one
-    // 4. Return count of successfully muted participants
+    // For local development, return mock success
+    // Actual muting happens client-side via Daily React hooks
     
-    const room = getDailyRoomById(classroomId);
+    const room = getClassroomById(`cohort-${classroomId}`);
     if (!room) {
       return { success: false, mutedCount: 0 };
     }

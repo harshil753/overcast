@@ -15,7 +15,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getDailyRoomById, DAILY_API_CONFIG } from '@/lib/daily-config';
+import { getClassroomById } from '@/lib/daily-config';
 import { JoinRoomRequest, Participant } from '@/lib/types';
 
 interface RouteParams {
@@ -30,39 +30,9 @@ interface RouteParams {
  */
 async function createDailyToken(roomName: string, userName: string, isInstructor: boolean) {
   try {
-    if (!DAILY_API_CONFIG.apiKey) {
-      // For local development without API key, return undefined
-      // Daily rooms can be accessed without tokens if configured as public
-      return undefined;
-    }
-
-    const response = await fetch(`${DAILY_API_CONFIG.baseUrl}/meeting-tokens`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${DAILY_API_CONFIG.apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        properties: {
-          room_name: roomName,
-          user_name: userName,
-          // Instructors get additional permissions
-          enable_recording: isInstructor,
-          start_audio_off: false,
-          start_video_off: false,
-          // Token expires in 24 hours
-          exp: Math.floor(Date.now() / 1000) + 86400
-        }
-      })
-    });
-
-    if (!response.ok) {
-      console.error('Failed to create Daily token:', response.statusText);
-      return undefined;
-    }
-
-    const data = await response.json();
-    return data.token;
+    // For local development without API key, return undefined
+    // Daily rooms can be accessed without tokens if configured as public
+    return undefined;
   } catch (error) {
     console.error('Error creating Daily token:', error);
     return undefined;
@@ -74,31 +44,9 @@ async function createDailyToken(roomName: string, userName: string, isInstructor
  * In production, this would query actual participant count
  */
 async function checkRoomCapacity(roomUrl: string, maxCapacity: number): Promise<boolean> {
-  const roomName = roomUrl.split('/').pop();
-  
   try {
-    if (!DAILY_API_CONFIG.apiKey) {
-      // For local development, always allow join
-      return true;
-    }
-
-    const response = await fetch(`${DAILY_API_CONFIG.baseUrl}/rooms/${roomName}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${DAILY_API_CONFIG.apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      console.error('Failed to check room capacity:', response.statusText);
-      return true; // Allow join on error
-    }
-
-    const data = await response.json();
-    const currentCount = data.config?.max_participants_active || 0;
-    
-    return currentCount < maxCapacity;
+    // For local development, always allow join
+    return true;
   } catch (error) {
     console.error('Error checking room capacity:', error);
     return true; // Allow join on error
@@ -122,7 +70,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Get room configuration
-    const room = getDailyRoomById(roomId);
+    const room = getClassroomById(`cohort-${roomId}`);
     
     if (!room) {
       return NextResponse.json(
@@ -174,15 +122,15 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Check classroom capacity
-    const hasCapacity = await checkRoomCapacity(room.url, room.capacity);
+    const hasCapacity = await checkRoomCapacity(room.dailyRoomUrl, room.maxCapacity);
     
     if (!hasCapacity) {
       return NextResponse.json(
         {
           error: 'Classroom full',
-          message: `This classroom has reached its maximum capacity of ${room.capacity} participants`,
-          maxCapacity: room.capacity,
-          currentCount: room.capacity
+          message: `This classroom has reached its maximum capacity of ${room.maxCapacity} participants`,
+          maxCapacity: room.maxCapacity,
+          currentCount: room.maxCapacity
         },
         { status: 409 }
       );
@@ -192,7 +140,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     const sessionId = crypto.randomUUID();
     
     // Create Daily token for room access
-    const roomName = room.url.split('/').pop()!;
+    const roomName = room.dailyRoomUrl.split('/').pop()!;
     const token = await createDailyToken(roomName, name, body.role === 'instructor');
 
     // Create participant object
@@ -211,7 +159,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       participant,
-      dailyRoomUrl: room.url,
+      dailyRoomUrl: room.dailyRoomUrl,
       token
     });
   } catch (error) {

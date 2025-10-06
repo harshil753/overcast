@@ -1,0 +1,434 @@
+openapi: 3.0.3
+info:
+  title: Video Recording API
+  description: Client-side recording functionality for Overcast classroom sessions
+  version: 1.0.0
+  contact:
+    name: Overcast Development Team
+    email: dev@overcast.example.com
+
+servers:
+  - url: /api/recording
+    description: Local client-side API
+
+paths:
+  /start:
+    post:
+      summary: Start video recording
+      description: Initiates recording of classroom video session
+      operationId: startRecording
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - classroomId
+                - userId
+              properties:
+                classroomId:
+                  type: string
+                  description: ID of the classroom session
+                  example: "classroom-123"
+                userId:
+                  type: string
+                  description: ID of the user starting recording
+                  example: "user-456"
+      responses:
+        '200':
+          description: Recording started successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recordingId:
+                    type: string
+                    description: Unique identifier for the recording
+                    example: "rec-789"
+                  startTime:
+                    type: number
+                    description: Unix timestamp when recording started
+                    example: 1704067200000
+                  status:
+                    type: string
+                    enum: [RECORDING]
+                    description: Current recording status
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict - recording already in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error - recording failed to start
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /stop:
+    post:
+      summary: Stop video recording
+      description: Stops the current recording session
+      operationId: stopRecording
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - recordingId
+              properties:
+                recordingId:
+                  type: string
+                  description: ID of the recording to stop
+                  example: "rec-789"
+      responses:
+        '200':
+          description: Recording stopped successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recordingId:
+                    type: string
+                    description: ID of the stopped recording
+                    example: "rec-789"
+                  endTime:
+                    type: number
+                    description: Unix timestamp when recording stopped
+                    example: 1704067800000
+                  duration:
+                    type: number
+                    description: Recording duration in milliseconds
+                    example: 600000
+                  status:
+                    type: string
+                    enum: [STOPPED]
+                    description: Final recording status
+        '400':
+          description: Bad request - invalid recording ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Recording not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error - recording failed to stop
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /list:
+    get:
+      summary: List user recordings
+      description: Retrieves list of recordings for a user in a classroom
+      operationId: listRecordings
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ID of the user
+          example: "user-456"
+        - name: classroomId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ID of the classroom session
+          example: "classroom-123"
+      responses:
+        '200':
+          description: List of recordings retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recordings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recording'
+                  total:
+                    type: number
+                    description: Total number of recordings
+                    example: 3
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error - failed to retrieve recordings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /download/{recordingId}:
+    get:
+      summary: Download recording
+      description: Generates download URL for a specific recording
+      operationId: downloadRecording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID of the recording to download
+          example: "rec-789"
+      responses:
+        '200':
+          description: Download URL generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  downloadUrl:
+                    type: string
+                    format: uri
+                    description: Temporary URL for downloading the recording
+                    example: "blob:https://overcast.example.com/abc123-def456"
+                  fileName:
+                    type: string
+                    description: Suggested filename for download
+                    example: "recording-rec-789-1704067200000.webm"
+                  fileSize:
+                    type: number
+                    description: Size of the recording file in bytes
+                    example: 15728640
+        '400':
+          description: Bad request - invalid recording ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Recording not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: Recording expired (TTL exceeded)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error - download failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cleanup:
+    post:
+      summary: Cleanup expired recordings
+      description: Removes recordings that have exceeded their TTL
+      operationId: cleanupExpiredRecordings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                  description: ID of the user
+                  example: "user-456"
+      responses:
+        '200':
+          description: Cleanup completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  removedCount:
+                    type: number
+                    description: Number of recordings removed
+                    example: 5
+                  remainingCount:
+                    type: number
+                    description: Number of recordings remaining
+                    example: 2
+        '400':
+          description: Bad request - invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error - cleanup failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Recording:
+      type: object
+      required:
+        - id
+        - classroomId
+        - userId
+        - startTime
+        - status
+        - fileName
+        - fileSize
+        - ttl
+        - retryCount
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the recording
+          example: "rec-789"
+        classroomId:
+          type: string
+          description: ID of the classroom session
+          example: "classroom-123"
+        userId:
+          type: string
+          description: ID of the user who started the recording
+          example: "user-456"
+        startTime:
+          type: number
+          description: Unix timestamp when recording started
+          example: 1704067200000
+        endTime:
+          type: number
+          description: Unix timestamp when recording ended
+          example: 1704067800000
+        duration:
+          type: number
+          description: Recording duration in milliseconds
+          example: 600000
+        status:
+          type: string
+          enum: [IDLE, RECORDING, STOPPED, ERROR]
+          description: Current recording status
+        fileName:
+          type: string
+          description: Generated filename for download
+          example: "recording-rec-789-1704067200000.webm"
+        fileSize:
+          type: number
+          description: Size of the recording file in bytes
+          example: 15728640
+        ttl:
+          type: number
+          description: Time-to-live timestamp (24 hours from creation)
+          example: 1704153600000
+        retryCount:
+          type: number
+          minimum: 0
+          maximum: 3
+          description: Number of retry attempts
+          example: 0
+        errorMessage:
+          type: string
+          description: Error details if recording failed
+          example: "Failed to access camera"
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Error code
+          example: "RECORDING_FAILED"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Failed to start recording: Camera access denied"
+        details:
+          type: object
+          description: Additional error details
+          properties:
+            recordingId:
+              type: string
+              description: ID of the recording that failed
+            retryCount:
+              type: number
+              description: Number of retry attempts made
+            timestamp:
+              type: number
+              description: Unix timestamp when error occurred
+
+    RecordingState:
+      type: object
+      required:
+        - userId
+        - classroomId
+        - isRecording
+        - recordings
+        - retryAttempts
+      properties:
+        userId:
+          type: string
+          description: ID of the user
+          example: "user-456"
+        classroomId:
+          type: string
+          description: ID of the classroom session
+          example: "classroom-123"
+        isRecording:
+          type: boolean
+          description: Whether currently recording
+          example: false
+        activeRecordingId:
+          type: string
+          description: ID of current recording (if any)
+          example: "rec-789"
+        recordings:
+          type: array
+          items:
+            type: string
+          description: List of recording IDs for this session
+          example: ["rec-789", "rec-790", "rec-791"]
+        lastError:
+          type: string
+          description: Most recent error message
+          example: "Camera access denied"
+        retryAttempts:
+          type: number
+          minimum: 0
+          maximum: 3
+          description: Current retry count
+          example: 1
+
+  securitySchemes:
+    localStorage:
+      type: apiKey
+      in: header
+      name: X-User-ID
+      description: User identification for localStorage access

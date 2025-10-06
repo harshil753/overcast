@@ -21,6 +21,10 @@
 - **👨‍🎓 Student Mode**: Join classrooms, view video feeds, participate in discussions
 - **👨‍🏫 Instructor Mode**: All student features plus participant management and mute controls
 - **🎥 Real-time Video**: Powered by Daily.co with up to **10 participants per classroom**
+- **🎬 Video Recording**: Record classroom sessions locally with start/stop controls
+- **📥 Download Management**: Download recordings after leaving classrooms
+- **🔄 Multiple Recordings**: Start multiple recording sessions within the same classroom
+- **⏰ Auto Cleanup**: Recordings automatically deleted after 24 hours
 - **🎨 Futuristic Design**: Black/teal/orange aesthetic with smooth animations and glow effects
 - **♿ Accessible**: WCAG AA compliant with keyboard navigation and ARIA labels
 - **📱 Responsive**: Works seamlessly on desktop, tablet, and mobile devices
@@ -147,6 +151,9 @@ overcast/
 │   │   ├── Classroom.tsx           # Classroom component with Daily integration
 │   │   ├── VideoFeed.tsx           # Video grid display
 │   │   ├── InstructorControls.tsx  # Instructor-only controls
+│   │   ├── RecordingControls.tsx   # Recording start/stop controls
+│   │   ├── RecordingManager.tsx    # Recording state management
+│   │   ├── DownloadManager.tsx     # Recording download interface
 │   │   └── ui/                     # Reusable UI components
 │   ├── globals.css                 # Futuristic theme (black/teal/orange)
 │   └── layout.tsx                  # Root layout with branding
@@ -155,20 +162,32 @@ overcast/
 │   ├── types.ts                    # TypeScript type definitions
 │   ├── constants.ts                # Application constants
 │   ├── daily-config.ts             # Daily.co room configuration
+│   ├── recording-utils.ts         # Recording operations and MediaRecorder API
+│   ├── storage-utils.ts           # localStorage management for recordings
+│   ├── browser-compatibility.ts   # Browser support detection
 │   └── utils.ts                    # Utility functions
 │
 ├── tests/
 │   ├── contract/                   # API contract tests
 │   ├── integration/                # E2E Playwright tests
+│   ├── performance/                 # Performance tests for recording
 │   └── unit/                       # Component unit tests
 │
 ├── specs/                          # Feature specifications
-│   └── 003-overcast-video-classroom/
-│       ├── spec.md                 # Feature specification
+│   ├── 003-overcast-video-classroom/
+│   │   ├── spec.md                 # Feature specification
+│   │   ├── plan.md                 # Implementation plan
+│   │   ├── tasks.md                # Task breakdown
+│   │   ├── data-model.md           # Data model documentation
+│   │   └── contracts/              # API contract specifications
+│   └── 004-video-recording-feature/
+│       ├── spec.md                 # Recording feature specification
 │       ├── plan.md                 # Implementation plan
 │       ├── tasks.md                # Task breakdown
-│       ├── data-model.md           # Data model documentation
-│       └── contracts/              # API contract specifications
+│       ├── data-model.md           # Recording data model
+│       ├── contracts/              # Recording API contracts
+│       ├── research.md             # Technical research
+│       └── quickstart.md           # Recording quickstart guide
 │
 └── .specify/                       # SpecStory configuration
     └── memory/
@@ -196,6 +215,17 @@ overcast/
 4. **Instructor Controls**: Access participant management panel
 5. **Manage Participants**: Mute/unmute individual participants
 6. **Equal Privileges**: All instructors have the same controls (FR-012)
+
+### Recording Journey
+
+1. **Join Classroom**: Enter any classroom as student or instructor
+2. **Start Recording**: Click "Start Recording" button next to "Leave Classroom"
+3. **Recording Active**: See recording indicator with duration display
+4. **Stop Recording**: Click "Stop Recording" to end current session
+5. **Multiple Sessions**: Start new recordings while classroom is open
+6. **Leave Classroom**: Recordings automatically saved when leaving
+7. **Download Recordings**: Visit `/recordings` page to download all recordings
+8. **Auto Cleanup**: Recordings automatically deleted after 24 hours
 
 ---
 

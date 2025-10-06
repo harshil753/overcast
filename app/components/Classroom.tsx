@@ -12,6 +12,8 @@ import {
 } from '@/lib/daily-utils';
 import InstructorControls from './InstructorControls';
 import VideoFeed from './VideoFeed';
+import RecordingControls from './RecordingControls';
+import RecordingManager from './RecordingManager';
 
 // Module-level singleton to prevent duplicate Daily instances
 // WHY: React strict mode causes effects to run twice, which creates duplicate Daily iframes
@@ -87,9 +89,26 @@ function ClassroomHeader({
             {user.name} ({user.role})
           </div>
 
+          {/* Recording Controls */}
+          <RecordingControls
+            userId={user.sessionId || ''}
+            classroomId={classroom.id}
+            className="mr-4"
+            onRecordingStart={(recording) => {
+              console.log('[Recording] Started:', recording.id);
+            }}
+            onRecordingStop={(recording) => {
+              console.log('[Recording] Stopped:', recording.id);
+            }}
+            onError={(error) => {
+              console.error('[Recording] Error:', error);
+            }}
+          />
+
           <button
             onClick={onLeave}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+            data-testid="leave-room-button"
           >
             Leave Classroom
           </button>
@@ -278,6 +297,26 @@ function ClassroomContent({ classroomId, userSession, onLeave }: ClassroomConten
   const handleLeave = useCallback(async () => {
     console.log('[Daily] Leaving classroom, destroying singleton...');
     
+    // Check for recordings before leaving
+    try {
+      const { getRecordings } = await import('@/lib/storage-utils');
+      const userRecordings = getRecordings(userSession.sessionId || '');
+      
+      if (userRecordings.length > 0) {
+        const shouldSave = confirm(
+          `You have ${userRecordings.length} recording(s) from this session. Would you like to download them before leaving?`
+        );
+        
+        if (shouldSave) {
+          // Navigate to recordings page for download
+          window.location.href = '/recordings';
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('[Classroom] Error checking recordings:', error);
+    }
+    
     // Use safe leave utility to ensure proper cleanup
     await safelyLeaveCall(daily);
     
@@ -294,7 +333,7 @@ function ClassroomContent({ classroomId, userSession, onLeave }: ClassroomConten
     }
     
     onLeave();
-  }, [daily, onLeave]);
+  }, [daily, onLeave, userSession.sessionId]);
 
   // Early return if classroom not found (after all hooks)
   if (!classroom) {
@@ -332,6 +371,22 @@ function ClassroomContent({ classroomId, userSession, onLeave }: ClassroomConten
         connectionState={connectionState}
         user={userSession}
         onLeave={handleLeave}
+      />
+
+      {/* Recording Manager */}
+      <RecordingManager
+        userId={userSession.sessionId || ''}
+        classroomId={classroomId}
+        callFrame={daily}
+        onRecordingStart={(recording) => {
+          console.log('[RecordingManager] Started:', recording.id);
+        }}
+        onRecordingStop={(recording) => {
+          console.log('[RecordingManager] Stopped:', recording.id);
+        }}
+        onError={(error) => {
+          console.error('[RecordingManager] Error:', error);
+        }}
       />
 
       {/* Main Content Area */}

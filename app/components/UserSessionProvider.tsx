@@ -15,8 +15,9 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import type { UserSession, UserRole } from '@/lib/types';
+import type { UserSession, UserRole, RecordingState } from '@/lib/types';
 import { STORAGE_KEYS, DEFAULT_USER_ROLE } from '@/lib/constants';
+import { getRecordingState, saveRecordingState, clearRecordingState } from '@/lib/storage-utils';
 
 // ============================================================================
 // TYPES
@@ -46,6 +47,15 @@ interface UserSessionContextType {
   
   /** Check if user has a valid session */
   hasSession: () => boolean;
+  
+  /** Recording state management */
+  recordingState: RecordingState | null;
+  
+  /** Update recording state */
+  setRecordingState: (state: RecordingState | null) => void;
+  
+  /** Clear recording state */
+  clearRecordingState: () => void;
 }
 
 // ============================================================================
@@ -69,6 +79,7 @@ export function UserSessionProvider({
   initialSession = null 
 }: UserSessionProviderProps) {
   const [session, setSessionState] = useState<UserSession | null>(initialSession);
+  const [recordingState, setRecordingStateState] = useState<RecordingState | null>(null);
 
   /**
    * Load session from localStorage on mount
@@ -83,6 +94,15 @@ export function UserSessionProvider({
       if (storedSession) {
         const parsed = JSON.parse(storedSession) as UserSession;
         setSessionState(parsed);
+      }
+
+      // Load recording state (only if we have session data)
+      if (storedSession) {
+        const parsed = JSON.parse(storedSession) as UserSession;
+        const storedRecordingState = getRecordingState(parsed.sessionId || '', parsed.currentClassroom || '');
+        if (storedRecordingState) {
+          setRecordingStateState(storedRecordingState);
+        }
       }
     } catch (error) {
       console.error('[UserSession] Failed to load session from localStorage:', error);
@@ -108,6 +128,24 @@ export function UserSessionProvider({
       console.error('[UserSession] Failed to save session to localStorage:', error);
     }
   }, [session]);
+
+  /**
+   * Save recording state to localStorage whenever it changes
+   * WHY: Persist recording state across page refreshes
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      if (recordingState) {
+        saveRecordingState(recordingState);
+      } else {
+        clearRecordingState();
+      }
+    } catch (error) {
+      console.error('[UserSession] Failed to save recording state to localStorage:', error);
+    }
+  }, [recordingState]);
 
   // ============================================================================
   // CONTEXT VALUE METHODS
@@ -141,6 +179,14 @@ export function UserSessionProvider({
     return session !== null && session.name.trim().length > 0;
   };
 
+  const setRecordingState = (state: RecordingState | null) => {
+    setRecordingStateState(state);
+  };
+
+  const clearRecordingState = () => {
+    setRecordingStateState(null);
+  };
+
   // ============================================================================
   // CONTEXT VALUE
   // ============================================================================
@@ -154,6 +200,9 @@ export function UserSessionProvider({
     setCurrentClassroom,
     clearSession,
     hasSession,
+    recordingState,
+    setRecordingState,
+    clearRecordingState,
   };
 
   return (

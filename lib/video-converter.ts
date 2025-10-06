@@ -80,8 +80,13 @@ export const convertWebMToMP4 = async (webmBlob: Blob): Promise<Blob> => {
     await ffmpeg.deleteFile(outputFileName);
 
     console.log('[VideoConverter] Conversion completed successfully');
-    // Return MP4 blob
-    return new Blob([data], { type: 'video/mp4' });
+    // Return MP4 blob - handle both string and Uint8Array cases
+    if (data instanceof Uint8Array) {
+      return new Blob([data as BlobPart], { type: 'video/mp4' });
+    } else {
+      const encoded = new TextEncoder().encode(data);
+      return new Blob([encoded as BlobPart], { type: 'video/mp4' });
+    }
   } catch (error) {
     console.error('[VideoConverter] Conversion failed:', error);
     console.warn('[VideoConverter] Returning original WebM blob');

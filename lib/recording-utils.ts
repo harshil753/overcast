@@ -13,7 +13,7 @@
  * - Error handling with user-friendly messages
  */
 
-import { Recording, RecordingFile, RecordingState, RecordingStatus } from './types';
+import { Recording, RecordingFile, RecordingStatus } from './types';
 
 /**
  * Maximum number of retry attempts for failed recordings
@@ -38,10 +38,10 @@ export const isRecordingSupported = (): boolean => {
   try {
     return !!(
       navigator.mediaDevices &&
-      navigator.mediaDevices.getUserMedia &&
+      typeof navigator.mediaDevices.getUserMedia === 'function' &&
       window.MediaRecorder &&
-      typeof (window.MediaRecorder as any).isTypeSupported === 'function' &&
-      (window.MediaRecorder as any).isTypeSupported('video/webm')
+      typeof (window.MediaRecorder as { isTypeSupported?: (type: string) => boolean }).isTypeSupported === 'function' &&
+      (window.MediaRecorder as { isTypeSupported: (type: string) => boolean }).isTypeSupported('video/webm')
     );
   } catch {
     return false;

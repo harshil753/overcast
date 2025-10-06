@@ -18,9 +18,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Recording, 
-  RecordingState, 
-  RecordingStatus,
-  RecordingFile 
+  RecordingState
 } from '../../lib/types';
 import { 
   isRecordingSupported,
@@ -28,10 +26,6 @@ import {
   createRecording,
   startRecordingWithRetry,
   stopRecording,
-  createRecordingFile,
-  generateDownloadUrl,
-  revokeDownloadUrl,
-  validateRecording,
   isRecordingExpired,
   getRecordingStatusMessage,
   getRecordingDuration,
@@ -39,12 +33,10 @@ import {
 } from '../../lib/recording-utils';
 import {
   saveRecording,
-  getRecordings,
   getRecordingsForClassroom,
   deleteRecording,
   saveRecordingState,
   getRecordingState,
-  clearRecordingState,
   cleanupExpiredRecordings,
   isStorageQuotaExceeded
 } from '../../lib/storage-utils';
@@ -168,7 +160,7 @@ export const useRecording = (config: UseRecordingConfig): UseRecordingReturn => 
         mediaStreamRef.current.getTracks().forEach(track => track.stop());
       }
     };
-  }, []);
+  }, [recordings]);
   
   /**
    * Start recording

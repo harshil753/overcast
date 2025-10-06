@@ -17,7 +17,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { UserSession, UserRole, RecordingState } from '@/lib/types';
 import { STORAGE_KEYS, DEFAULT_USER_ROLE } from '@/lib/constants';
-import { getRecordingState, saveRecordingState, clearRecordingState } from '@/lib/storage-utils';
+import { getRecordingState, saveRecordingState } from '@/lib/storage-utils';
 
 // ============================================================================
 // TYPES
@@ -202,7 +202,7 @@ export function UserSessionProvider({
     hasSession,
     recordingState,
     setRecordingState,
-    clearRecordingState,
+    clearRecordingState: () => setRecordingState(null),
   };
 
   return (

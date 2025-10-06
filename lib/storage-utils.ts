@@ -39,7 +39,7 @@ export const isLocalStorageAvailable = (): boolean => {
     localStorage.setItem(testKey, 'test');
     localStorage.removeItem(testKey);
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 };
@@ -92,7 +92,6 @@ export const saveRecording = (recording: Recording): boolean => {
     
     // Update existing recording or add new one
     const updatedRecordings = existingRecordings.filter(r => r.id !== recording.id);
-    updatedRecordings.push(recording);
     
     const storedRecording: StoredRecording = {
       id: recording.id,
@@ -109,6 +108,7 @@ export const saveRecording = (recording: Recording): boolean => {
       errorMessage: recording.errorMessage,
     };
     
+    updatedRecordings.push(storedRecording);
     localStorage.setItem(key, JSON.stringify(updatedRecordings));
     return true;
   } catch (error) {

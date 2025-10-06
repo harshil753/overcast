@@ -23,7 +23,6 @@ import { useRecording } from '../hooks/useRecording';
 import { Recording, RecordingFile } from '../../lib/types';
 import { 
   createRecordingFile, 
-  generateDownloadUrl, 
   revokeDownloadUrl,
   isRecordingSupported 
 } from '../../lib/recording-utils';
@@ -31,7 +30,7 @@ import {
 interface RecordingManagerProps {
   userId: string;
   classroomId: string;
-  callFrame?: any; // Daily.co call frame object
+  callFrame?: unknown; // Daily.co call frame object
   onRecordingStart?: (recording: Recording) => void;
   onRecordingStop?: (recording: Recording) => void;
   onError?: (error: string) => void;
@@ -54,11 +53,7 @@ export const RecordingManager: React.FC<RecordingManagerProps> = ({
   const recordingFileRef = useRef<RecordingFile | null>(null);
 
   const {
-    isRecording,
-    currentRecording,
-    startRecording,
-    stopRecording,
-    retryRecording,
+    // Recording functionality is managed by the useRecording hook
   } = useRecording({
     userId,
     classroomId,
@@ -142,7 +137,7 @@ export const RecordingManager: React.FC<RecordingManagerProps> = ({
   /**
    * Handle recording stop
    */
-  const handleRecordingStop = useCallback(async (recording: Recording) => {
+  const handleRecordingStop = useCallback(async (_recording: Recording) => {
     try {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
         mediaRecorderRef.current.stop();
@@ -167,11 +162,18 @@ export const RecordingManager: React.FC<RecordingManagerProps> = ({
   /**
    * Capture Daily.co video and audio streams
    */
-  const captureDailyStreams = async (callFrame: any): Promise<MediaStream> => {
+  const captureDailyStreams = async (callFrame: unknown): Promise<MediaStream> => {
     try {
+      // Type guard to ensure callFrame has the required methods
+      if (!callFrame || typeof callFrame !== 'object') {
+        throw new Error('Invalid callFrame object');
+      }
+      
+      const frame = callFrame as { getLocalVideoElement: () => HTMLVideoElement; getLocalAudioElement: () => HTMLAudioElement };
+      
       // Get Daily.co video and audio elements
-      const videoElement = callFrame.getLocalVideoElement();
-      const audioElement = callFrame.getLocalAudioElement();
+      const videoElement = frame.getLocalVideoElement();
+      const audioElement = frame.getLocalAudioElement();
 
       if (!videoElement || !audioElement) {
         throw new Error('Daily.co video/audio elements not available');
@@ -191,7 +193,23 @@ export const RecordingManager: React.FC<RecordingManagerProps> = ({
 
       // Create combined stream
       const canvasStream = canvas.captureStream(30); // 30 FPS
-      const audioStream = audioElement.captureStream();
+      
+      // For audio, we need to use getUserMedia to capture system audio
+      // or use the audio element's audio context if available
+      let audioStream: MediaStream;
+      try {
+        // Try to get audio from the audio element's context
+        if (audioElement.srcObject && audioElement.srcObject instanceof MediaStream) {
+          audioStream = audioElement.srcObject;
+        } else {
+          // Fallback: request microphone access for audio
+          audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+      } catch (error) {
+        console.warn('Could not capture audio stream:', error);
+        // Create empty audio stream as fallback
+        audioStream = new MediaStream();
+      }
 
       // Combine video and audio streams
       const combinedStream = new MediaStream([
@@ -216,22 +234,6 @@ export const RecordingManager: React.FC<RecordingManagerProps> = ({
     }
   };
 
-  /**
-   * Get download URL for current recording
-   */
-  const getDownloadUrl = useCallback((): string | null => {
-    if (recordingFileRef.current) {
-      return generateDownloadUrl(recordingFileRef.current);
-    }
-    return null;
-  }, []);
-
-  /**
-   * Revoke download URL to prevent memory leaks
-   */
-  const revokeDownload = useCallback((url: string) => {
-    revokeDownloadUrl(url);
-  }, []);
 
   /**
    * Cleanup on component unmount

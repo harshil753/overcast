@@ -239,7 +239,6 @@ export const isRecordingFullySupported = (): boolean => {
  */
 export const getBestSupportedMimeType = (): string | null => {
   const videoCodecs = getSupportedVideoCodecs();
-  const audioCodecs = getSupportedAudioCodecs();
 
   // Prefer WebM with VP9 and Opus
   const preferredCodecs = [

@@ -46,7 +46,6 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState<number>(0);
-  const [isConverting, setIsConverting] = useState(false);
 
   const {
     isRecording,
@@ -58,7 +57,6 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
     startRecording,
     stopRecording,
     retryRecording,
-    getRecordingDuration,
   } = useRecording({
     userId,
     classroomId,

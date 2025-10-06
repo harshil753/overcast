@@ -19,6 +19,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import DownloadManager from '../components/DownloadManager';
 import { Recording } from '../../lib/types';
 import { getAllRecordings } from '../../lib/storage-utils';
@@ -112,12 +113,12 @@ export default function RecordingsPage() {
             >
               {isLoading ? 'Loading...' : 'Refresh'}
             </button>
-            <a
+            <Link
               href="/"
               className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors"
             >
               Back to Lobby
-            </a>
+            </Link>
           </div>
         </div>
       </div>

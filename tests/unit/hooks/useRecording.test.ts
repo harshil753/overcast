@@ -51,12 +51,14 @@ jest.mock('@/lib/storage-utils', () => ({
   saveRecording: jest.fn(() => true),
   getRecordings: jest.fn(() => []),
   getRecordingsForClassroom: jest.fn(() => []),
-  deleteRecording: jest.fn(() => true),
+  deleteRecording: jest.fn(() => Promise.resolve(true)),
   saveRecordingState: jest.fn(() => true),
   getRecordingState: jest.fn(() => null),
   clearRecordingState: jest.fn(() => true),
-  cleanupExpiredRecordings: jest.fn(() => ({ removedCount: 0, remainingCount: 0 })),
+  cleanupExpiredRecordings: jest.fn(() => Promise.resolve({ removedCount: 0, remainingCount: 0 })),
   isStorageQuotaExceeded: jest.fn(() => false),
+  saveRecordingBlob: jest.fn(() => Promise.resolve(true)),
+  getRecordingBlob: jest.fn(() => Promise.resolve(new Blob(['test'], { type: 'video/webm' }))),
 }));
 
 // Mock MediaRecorder
@@ -585,7 +587,7 @@ describe('useRecording Hook', () => {
 
   test('handles auto cleanup', () => {
     const { cleanupExpiredRecordings } = require('@/lib/storage-utils');
-    cleanupExpiredRecordings.mockReturnValue({ removedCount: 2, remainingCount: 1 });
+    cleanupExpiredRecordings.mockResolvedValue({ removedCount: 2, remainingCount: 1 });
     
     renderHook(() => useRecording(mockConfig));
     

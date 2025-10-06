@@ -34,6 +34,11 @@ jest.mock('@/lib/recording-utils', () => ({
   }),
 }));
 
+// Mock storage utilities
+jest.mock('@/lib/storage-utils', () => ({
+  getRecordingBlob: jest.fn(() => Promise.resolve(new Blob(['test video data'], { type: 'video/webm' }))),
+}));
+
 // Mock URL.createObjectURL and URL.revokeObjectURL
 const mockCreateObjectURL = jest.fn(() => 'blob:http://localhost:3000/test-url');
 const mockRevokeObjectURL = jest.fn();

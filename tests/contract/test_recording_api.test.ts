@@ -22,11 +22,11 @@ vi.mock('../../lib/recording-utils', () => ({
 vi.mock('../../lib/storage-utils', () => ({
   saveRecording: vi.fn(() => true),
   getRecordings: vi.fn(() => []),
-  deleteRecording: vi.fn(() => true),
+  deleteRecording: vi.fn(() => Promise.resolve(true)),
   saveRecordingState: vi.fn(() => true),
   getRecordingState: vi.fn(() => null),
   clearRecordingState: vi.fn(() => true),
-  cleanupExpiredRecordings: vi.fn(() => ({ removedCount: 0, remainingCount: 0 })),
+  cleanupExpiredRecordings: vi.fn(() => Promise.resolve({ removedCount: 0, remainingCount: 0 })),
 }));
 
 describe('Recording API Contract Tests', () => {

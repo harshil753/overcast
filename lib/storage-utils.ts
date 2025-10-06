@@ -7,6 +7,7 @@
  * 
  * Key Features:
  * - localStorage CRUD operations with error handling
+ * - IndexedDB for storing video blobs (large files)
  * - TTL-based automatic cleanup of expired recordings
  * - Storage quota management and monitoring
  * - JSON serialization with validation
@@ -28,6 +29,152 @@ const STORAGE_KEYS = {
  * Maximum storage quota in bytes (5MB default)
  */
 const MAX_STORAGE_QUOTA = 5 * 1024 * 1024;
+
+/**
+ * IndexedDB database name and version
+ */
+const DB_NAME = 'overcast-recordings';
+const DB_VERSION = 1;
+const BLOB_STORE_NAME = 'recording-blobs';
+
+/**
+ * Open IndexedDB database for blob storage
+ * @returns {Promise<IDBDatabase>} IndexedDB database instance
+ */
+const openBlobDatabase = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      reject(new Error('IndexedDB not available'));
+      return;
+    }
+
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      
+      // Create object store for blobs if it doesn't exist
+      if (!db.objectStoreNames.contains(BLOB_STORE_NAME)) {
+        db.createObjectStore(BLOB_STORE_NAME, { keyPath: 'recordingId' });
+      }
+    };
+  });
+};
+
+/**
+ * Save recording blob to IndexedDB
+ * @param {string} recordingId - Recording ID
+ * @param {Blob} blob - Video blob to save
+ * @returns {Promise<boolean>} True if saved successfully
+ */
+export const saveRecordingBlob = async (recordingId: string, blob: Blob): Promise<boolean> => {
+  try {
+    const db = await openBlobDatabase();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([BLOB_STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(BLOB_STORE_NAME);
+      
+      const data = {
+        recordingId,
+        blob,
+        timestamp: Date.now(),
+      };
+      
+      const request = store.put(data);
+      
+      request.onsuccess = () => {
+        console.log('[Storage] Blob saved successfully:', recordingId, 'size:', blob.size);
+        resolve(true);
+      };
+      
+      request.onerror = () => {
+        console.error('[Storage] Failed to save blob:', request.error);
+        reject(request.error);
+      };
+      
+      transaction.oncomplete = () => db.close();
+    });
+  } catch (error) {
+    console.error('[Storage] Error saving blob:', error);
+    return false;
+  }
+};
+
+/**
+ * Get recording blob from IndexedDB
+ * @param {string} recordingId - Recording ID
+ * @returns {Promise<Blob | null>} Video blob or null if not found
+ */
+export const getRecordingBlob = async (recordingId: string): Promise<Blob | null> => {
+  try {
+    const db = await openBlobDatabase();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([BLOB_STORE_NAME], 'readonly');
+      const store = transaction.objectStore(BLOB_STORE_NAME);
+      
+      const request = store.get(recordingId);
+      
+      request.onsuccess = () => {
+        const result = request.result;
+        if (result && result.blob) {
+          console.log('[Storage] Blob retrieved successfully:', recordingId, 'size:', result.blob.size);
+          resolve(result.blob);
+        } else {
+          console.warn('[Storage] Blob not found:', recordingId);
+          resolve(null);
+        }
+      };
+      
+      request.onerror = () => {
+        console.error('[Storage] Failed to get blob:', request.error);
+        reject(request.error);
+      };
+      
+      transaction.oncomplete = () => db.close();
+    });
+  } catch (error) {
+    console.error('[Storage] Error getting blob:', error);
+    return null;
+  }
+};
+
+/**
+ * Delete recording blob from IndexedDB
+ * @param {string} recordingId - Recording ID
+ * @returns {Promise<boolean>} True if deleted successfully
+ */
+export const deleteRecordingBlob = async (recordingId: string): Promise<boolean> => {
+  try {
+    const db = await openBlobDatabase();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([BLOB_STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(BLOB_STORE_NAME);
+      
+      const request = store.delete(recordingId);
+      
+      request.onsuccess = () => {
+        console.log('[Storage] Blob deleted successfully:', recordingId);
+        resolve(true);
+      };
+      
+      request.onerror = () => {
+        console.error('[Storage] Failed to delete blob:', request.error);
+        reject(request.error);
+      };
+      
+      transaction.oncomplete = () => db.close();
+    });
+  } catch (error) {
+    console.error('[Storage] Error deleting blob:', error);
+    return false;
+  }
+};
 
 /**
  * Check if localStorage is available
@@ -221,9 +368,9 @@ export const getRecordingsForClassroom = (userId: string, classroomId: string): 
  * Delete a recording
  * @param {string} userId - User ID
  * @param {string} recordingId - Recording ID to delete
- * @returns {boolean} True if deleted successfully
+ * @returns {Promise<boolean>} True if deleted successfully
  */
-export const deleteRecording = (userId: string, recordingId: string): boolean => {
+export const deleteRecording = async (userId: string, recordingId: string): Promise<boolean> => {
   if (!isLocalStorageAvailable()) {
     return false;
   }
@@ -235,9 +382,12 @@ export const deleteRecording = (userId: string, recordingId: string): boolean =>
     
     localStorage.setItem(key, JSON.stringify(updatedRecordings));
     
-    // Also remove the recording file if it exists
+    // Also remove the recording file if it exists (old localStorage approach)
     const fileKey = STORAGE_KEYS.RECORDING_FILES(recordingId);
     localStorage.removeItem(fileKey);
+    
+    // Delete blob from IndexedDB
+    await deleteRecordingBlob(recordingId);
     
     return true;
   } catch (error) {
@@ -337,9 +487,9 @@ export const clearRecordingState = (userId: string, classroomId: string): boolea
 /**
  * Clean up expired recordings
  * @param {string} userId - User ID
- * @returns {{ removedCount: number; remainingCount: number }} Cleanup results
+ * @returns {Promise<{ removedCount: number; remainingCount: number }>} Cleanup results
  */
-export const cleanupExpiredRecordings = (userId: string): { removedCount: number; remainingCount: number } => {
+export const cleanupExpiredRecordings = async (userId: string): Promise<{ removedCount: number; remainingCount: number }> => {
   const recordings = getRecordings(userId);
   const now = Date.now();
   
@@ -358,11 +508,12 @@ export const cleanupExpiredRecordings = (userId: string): { removedCount: number
     const key = STORAGE_KEYS.RECORDINGS(userId);
     localStorage.setItem(key, JSON.stringify(validRecordings));
     
-    // Remove expired recording files
-    expiredRecordings.forEach(recording => {
+    // Remove expired recording files (both localStorage and IndexedDB)
+    for (const recording of expiredRecordings) {
       const fileKey = STORAGE_KEYS.RECORDING_FILES(recording.id);
       localStorage.removeItem(fileKey);
-    });
+      await deleteRecordingBlob(recording.id);
+    }
   }
   
   return {

@@ -27,6 +27,7 @@ import {
   getRecordingDuration,
   isRecordingExpired 
 } from '../../lib/recording-utils';
+import { getRecordingBlob } from '../../lib/storage-utils';
 
 interface DownloadManagerProps {
   recordings: Recording[];
@@ -72,22 +73,31 @@ export const DownloadManager: React.FC<DownloadManagerProps> = ({
         return existingUrl;
       }
 
-      // For now, we'll create a mock blob URL since we don't have the actual file
-      // In a real implementation, this would retrieve the blob from storage
-      const mockBlob = new Blob(['Mock recording data'], { type: 'video/webm' });
+      // Retrieve the actual video blob from IndexedDB
+      console.log('[DownloadManager] Retrieving blob for recording:', recording.id);
+      const blob = await getRecordingBlob(recording.id);
+      
+      if (!blob) {
+        throw new Error('Recording file not found. The video data may have been deleted.');
+      }
+      
+      console.log('[DownloadManager] Blob retrieved - type:', blob.type, 'size:', blob.size);
+      
+      // Generate download URL from the actual blob
       const url = generateDownloadUrl({ 
         recordingId: recording.id, 
-        blob: mockBlob, 
-        mimeType: 'video/webm',
+        blob: blob, 
+        mimeType: blob.type || 'video/webm',
         createdAt: recording.startTime 
       });
 
       // Store the URL
       setDownloadUrls(prev => new Map(prev).set(recording.id, url));
       
+      console.log('[DownloadManager] Download URL generated successfully');
       return url;
     } catch (error) {
-      console.error('Failed to generate download URL:', error);
+      console.error('[DownloadManager] Failed to generate download URL:', error);
       throw error;
     }
   }, [downloadUrls]);

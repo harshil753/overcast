@@ -339,7 +339,7 @@ describe('Storage Utilities', () => {
   });
 
   describe('deleteRecording', () => {
-    test('should delete recording successfully', () => {
+    test('should delete recording successfully', async () => {
       const storedRecordings = [
         {
           id: 'recording-1',
@@ -356,7 +356,7 @@ describe('Storage Utilities', () => {
       
       mockLocalStorage.getItem.mockReturnValue(JSON.stringify(storedRecordings));
       
-      const result = deleteRecording('user-1', 'recording-1');
+      const result = await deleteRecording('user-1', 'recording-1');
       
       expect(result).toBe(true);
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
@@ -368,23 +368,23 @@ describe('Storage Utilities', () => {
       );
     });
 
-    test('should return false when localStorage is not available', () => {
+    test('should return false when localStorage is not available', async () => {
       Object.defineProperty(window, 'localStorage', {
         value: undefined,
         writable: true,
       });
       
-      const result = deleteRecording('user-1', 'recording-1');
+      const result = await deleteRecording('user-1', 'recording-1');
       
       expect(result).toBe(false);
     });
 
-    test('should handle localStorage errors', () => {
+    test('should handle localStorage errors', async () => {
       mockLocalStorage.setItem.mockImplementation(() => {
         throw new Error('Storage error');
       });
       
-      const result = deleteRecording('user-1', 'recording-1');
+      const result = await deleteRecording('user-1', 'recording-1');
       
       expect(result).toBe(false);
       expect(mockConsoleError).toHaveBeenCalledWith('Failed to delete recording:', expect.any(Error));
@@ -492,7 +492,7 @@ describe('Storage Utilities', () => {
   });
 
   describe('cleanupExpiredRecordings', () => {
-    test('should remove expired recordings', () => {
+    test('should remove expired recordings', async () => {
       const now = Date.now();
       const expiredTime = now - 86400000; // 24 hours ago
       const validTime = now + 86400000; // 24 hours from now
@@ -524,7 +524,7 @@ describe('Storage Utilities', () => {
       
       mockLocalStorage.getItem.mockReturnValue(JSON.stringify(storedRecordings));
       
-      const result = cleanupExpiredRecordings('user-1');
+      const result = await cleanupExpiredRecordings('user-1');
       
       expect(result.removedCount).toBe(1);
       expect(result.remainingCount).toBe(1);
@@ -537,7 +537,7 @@ describe('Storage Utilities', () => {
       );
     });
 
-    test('should return zero counts when no expired recordings', () => {
+    test('should return zero counts when no expired recordings', async () => {
       const now = Date.now();
       const validTime = now + 86400000; // 24 hours from now
       
@@ -557,7 +557,7 @@ describe('Storage Utilities', () => {
       
       mockLocalStorage.getItem.mockReturnValue(JSON.stringify(storedRecordings));
       
-      const result = cleanupExpiredRecordings('user-1');
+      const result = await cleanupExpiredRecordings('user-1');
       
       expect(result.removedCount).toBe(0);
       expect(result.remainingCount).toBe(1);

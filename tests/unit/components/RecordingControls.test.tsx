@@ -29,7 +29,7 @@ jest.mock('@/lib/recording-utils', () => ({
 jest.mock('@/lib/storage-utils', () => ({
   saveRecording: jest.fn(() => true),
   getRecordings: jest.fn(() => []),
-  deleteRecording: jest.fn(() => true),
+  deleteRecording: jest.fn(() => Promise.resolve(true)),
 }));
 
 describe('RecordingControls Component', () => {

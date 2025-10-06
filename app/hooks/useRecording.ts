@@ -38,7 +38,8 @@ import {
   saveRecordingState,
   getRecordingState,
   cleanupExpiredRecordings,
-  isStorageQuotaExceeded
+  isStorageQuotaExceeded,
+  saveRecordingBlob
 } from '../../lib/storage-utils';
 
 /**
@@ -114,7 +115,7 @@ export const useRecording = (config: UseRecordingConfig): UseRecordingReturn => 
       
       if (autoCleanup) {
         // Clean up expired recordings
-        const cleanupResult = cleanupExpiredRecordings(userId);
+        const cleanupResult = await cleanupExpiredRecordings(userId);
         if (cleanupResult.removedCount > 0) {
           console.log(`Cleaned up ${cleanupResult.removedCount} expired recordings`);
         }
@@ -243,7 +244,7 @@ export const useRecording = (config: UseRecordingConfig): UseRecordingReturn => 
         setCurrentRecording(null);
       };
       
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         console.log('[Recording] MediaRecorder stopped, chunks:', recordingChunksRef.current.length);
         
         // Create blob with proper MIME type
@@ -269,8 +270,17 @@ export const useRecording = (config: UseRecordingConfig): UseRecordingReturn => 
         
         const finalRecording = stopRecording(updatedRecording, blob);
         
-        // Save recording
+        // Save recording metadata
         saveRecording(finalRecording);
+        
+        // Save recording blob to IndexedDB
+        const blobSaved = await saveRecordingBlob(finalRecording.id, blob);
+        if (!blobSaved) {
+          console.error('[Recording] Failed to save blob to storage');
+          setError('Recording saved but video file storage failed');
+        } else {
+          console.log('[Recording] Recording and blob saved successfully');
+        }
         
         // Update state
         setCurrentRecording(null);
@@ -385,7 +395,7 @@ export const useRecording = (config: UseRecordingConfig): UseRecordingReturn => 
    * Delete recording
    */
   const deleteRecordingAction = useCallback(async (recordingId: string): Promise<boolean> => {
-    const success = deleteRecording(userId, recordingId);
+    const success = await deleteRecording(userId, recordingId);
     if (success) {
       setRecordings(prev => prev.filter(r => r.id !== recordingId));
     }
@@ -396,7 +406,7 @@ export const useRecording = (config: UseRecordingConfig): UseRecordingReturn => 
    * Clear all recordings
    */
   const clearAllRecordings = useCallback(async (): Promise<boolean> => {
-    const success = deleteRecording(userId, 'all'); // This would need to be implemented
+    const success = await deleteRecording(userId, 'all'); // This would need to be implemented
     if (success) {
       setRecordings([]);
     }

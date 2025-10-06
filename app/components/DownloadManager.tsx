@@ -173,7 +173,7 @@ export const DownloadManager: React.FC<DownloadManagerProps> = ({
       revokeDownloadUrl(url);
     });
     setDownloadUrls(new Map());
-  }, [downloadUrls]);
+  }, []); // Remove downloadUrls from dependencies to prevent infinite loop
 
   /**
    * Get download state for a recording

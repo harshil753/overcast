@@ -191,33 +191,90 @@ export const useRecording = (config: UseRecordingConfig): UseRecordingReturn => 
       const stream = await getUserMediaStream();
       mediaStreamRef.current = stream;
       
-      // Create new recording
-      const recording = createRecording(classroomId, userId);
+      // Check what formats are supported and log them
+      console.log('[Recording] Checking supported formats:');
+      console.log('  video/mp4;codecs=h264,aac:', MediaRecorder.isTypeSupported('video/mp4;codecs=h264,aac'));
+      console.log('  video/mp4;codecs=h264:', MediaRecorder.isTypeSupported('video/mp4;codecs=h264'));
+      console.log('  video/mp4:', MediaRecorder.isTypeSupported('video/mp4'));
+      console.log('  video/webm;codecs=vp8,opus:', MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus'));
+      console.log('  video/webm;codecs=vp9,opus:', MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus'));
+      
+      // Use WebM with VP8 for reliable compatibility
+      // Basic video/mp4 often creates files with non-standard structure
+      let mimeType = 'video/webm;codecs=vp8,opus';
+      
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm;codecs=vp9,opus';
+        console.log('[Recording] VP8 not supported, using WebM with VP9 codec');
+      } else {
+        console.log('[Recording] Using WebM with VP8 codec for reliable compatibility');
+      }
+      
+      // Create new recording with the determined MIME type
+      const recording = createRecording(classroomId, userId, mimeType);
       setCurrentRecording(recording);
       
       // Start recording with retry logic
-      const updatedRecording = await startRecordingWithRetry(recording, stream);
+      const updatedRecording = await startRecordingWithRetry(recording, stream, mimeType);
       
       if (updatedRecording.status === 'ERROR') {
         throw new Error(updatedRecording.errorMessage || 'Failed to start recording');
       }
       
-      // Set up MediaRecorder
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp8,opus',
+        mimeType: mimeType,
       });
       
       mediaRecorderRef.current = mediaRecorder;
       recordingChunksRef.current = [];
       
+      console.log('[Recording] MediaRecorder created with MIME type:', mimeType);
+      console.log('[Recording] Stream tracks:', stream.getTracks().map(track => ({ 
+        kind: track.kind, 
+        enabled: track.enabled, 
+        readyState: track.readyState 
+      })));
+      
       mediaRecorder.ondataavailable = (event) => {
+        console.log('[Recording] Data available - size:', event.data.size, 'type:', event.data.type);
         if (event.data.size > 0) {
           recordingChunksRef.current.push(event.data);
+        } else {
+          console.warn('[Recording] Received empty data chunk');
         }
       };
       
+      mediaRecorder.onerror = (event) => {
+        console.error('[Recording] MediaRecorder error:', event);
+        setError('Recording failed: MediaRecorder error');
+        setIsRecording(false);
+        setCurrentRecording(null);
+      };
+      
       mediaRecorder.onstop = () => {
-        const blob = new Blob(recordingChunksRef.current, { type: 'video/webm' });
+        console.log('[Recording] MediaRecorder stopped, chunks:', recordingChunksRef.current.length);
+        
+        // Create blob with proper MIME type
+        const blob = new Blob(recordingChunksRef.current, { type: mimeType });
+        console.log('[Recording] Blob created - type:', blob.type, 'size:', blob.size, 'chunks:', recordingChunksRef.current.length);
+        
+        // Validate blob
+        if (blob.size === 0) {
+          console.error('[Recording] ERROR: Blob is empty!');
+          setError('Recording failed: No data captured');
+          setIsRecording(false);
+          setCurrentRecording(null);
+          return;
+        }
+        
+        if (recordingChunksRef.current.length === 0) {
+          console.error('[Recording] ERROR: No chunks recorded!');
+          setError('Recording failed: No video data captured');
+          setIsRecording(false);
+          setCurrentRecording(null);
+          return;
+        }
+        
         const finalRecording = stopRecording(updatedRecording, blob);
         
         // Save recording
@@ -242,11 +299,8 @@ export const useRecording = (config: UseRecordingConfig): UseRecordingReturn => 
         onRecordingStop?.(finalRecording);
       };
       
-      mediaRecorder.onerror = (event) => {
-        throw new Error(`MediaRecorder error: ${event}`);
-      };
-      
-      // Start recording
+      // Start recording with 1-second timeslices for better chunking
+      console.log('[Recording] Starting MediaRecorder...');
       mediaRecorder.start(1000);
       
       // Update state

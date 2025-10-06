@@ -46,6 +46,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState<number>(0);
+  const [isConverting, setIsConverting] = useState(false);
 
   const {
     isRecording,
@@ -244,6 +245,17 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
           data-testid="recording-saved-message"
         >
           Recording saved successfully
+        </div>
+      )}
+
+      {/* Format Information */}
+      {!isRecording && !error && (
+        <div 
+          className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded mt-2 text-sm"
+          data-testid="format-info"
+        >
+          <strong>Note:</strong> Recordings are saved in WebM format with VP8 codec for reliable compatibility. 
+          WebM files can be played in Chrome, Firefox, Edge, and VLC Media Player. For Windows Media Player, use VLC instead.
         </div>
       )}
     </div>

@@ -49,15 +49,54 @@ export const isRecordingSupported = (): boolean => {
 };
 
 /**
+ * Convert WebM blob to MP4 format using FFmpeg
+ * @param {Blob} webmBlob - WebM video blob
+ * @returns {Promise<Blob>} MP4 video blob
+ */
+export const convertWebMToMP4 = async (webmBlob: Blob): Promise<Blob> => {
+  try {
+    const { convertWebMToMP4: ffmpegConvert } = await import('./video-converter');
+    return await ffmpegConvert(webmBlob);
+  } catch (error) {
+    console.error('Failed to convert WebM to MP4:', error);
+    // Return original blob if conversion fails
+    return webmBlob;
+  }
+};
+
+/**
  * Get user media stream for recording
  * @param {MediaStreamConstraints} constraints - Media constraints
  * @returns {Promise<MediaStream>} Media stream for recording
  */
 export const getUserMediaStream = async (
-  constraints: MediaStreamConstraints = { video: true, audio: true }
+  constraints: MediaStreamConstraints = { 
+    video: { 
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      frameRate: { ideal: 30 }
+    }, 
+    audio: { 
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    } 
+  }
 ): Promise<MediaStream> => {
   try {
-    return await navigator.mediaDevices.getUserMedia(constraints);
+    console.log('[Recording] Requesting media stream with constraints:', constraints);
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    console.log('[Recording] Media stream obtained:', {
+      videoTracks: stream.getVideoTracks().length,
+      audioTracks: stream.getAudioTracks().length,
+      tracks: stream.getTracks().map(track => ({
+        kind: track.kind,
+        enabled: track.enabled,
+        readyState: track.readyState,
+        settings: track.getSettings()
+      }))
+    });
+    return stream;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     throw new Error(`Failed to access camera/microphone: ${errorMessage}`);
@@ -68,11 +107,29 @@ export const getUserMediaStream = async (
  * Create a new recording instance
  * @param {string} classroomId - Classroom session ID
  * @param {string} userId - User ID
+ * @param {string} mimeType - MIME type for the recording (default: video/webm)
  * @returns {Recording} New recording instance
  */
-export const createRecording = (classroomId: string, userId: string): Recording => {
+export const createRecording = (classroomId: string, userId: string, mimeType: string = 'video/webm'): Recording => {
   const now = Date.now();
   const id = crypto.randomUUID();
+  
+  // Create a readable timestamp for the filename
+  const date = new Date(now);
+  const timestamp = date.toISOString()
+    .replace(/[:.]/g, '-')
+    .replace('T', '_')
+    .substring(0, 19); // Format: YYYY-MM-DD_HH-MM-SS
+  
+  // Determine file extension based on actual MIME type
+  const getFileExtension = (mimeType: string): string => {
+    if (mimeType.includes('mp4')) return 'mp4';
+    if (mimeType.includes('webm')) return 'webm';
+    if (mimeType.includes('ogg')) return 'ogg';
+    return 'mp4'; // fallback to MP4 for better compatibility
+  };
+  
+  const extension = getFileExtension(mimeType);
   
   return {
     id,
@@ -80,7 +137,7 @@ export const createRecording = (classroomId: string, userId: string): Recording 
     userId,
     startTime: now,
     status: 'IDLE' as RecordingStatus,
-    fileName: `recording-${id}-${now}.webm`,
+    fileName: `recording_${timestamp}.${extension}`,
     fileSize: 0,
     ttl: now + RECORDING_TTL,
     retryCount: 0,
@@ -91,17 +148,19 @@ export const createRecording = (classroomId: string, userId: string): Recording 
  * Start recording with retry logic
  * @param {Recording} recording - Recording instance
  * @param {MediaStream} stream - Media stream to record
+ * @param {string} mimeType - MIME type for recording
  * @param {number} attempt - Current attempt number (default: 0)
  * @returns {Promise<Recording>} Updated recording instance
  */
 export const startRecordingWithRetry = async (
   recording: Recording,
   stream: MediaStream,
+  mimeType: string,
   attempt: number = 0
 ): Promise<Recording> => {
   try {
     const mediaRecorder = new MediaRecorder(stream, {
-      mimeType: 'video/webm;codecs=vp8,opus',
+      mimeType: mimeType,
     });
 
     const chunks: Blob[] = [];
@@ -113,7 +172,9 @@ export const startRecordingWithRetry = async (
     };
 
     mediaRecorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' });
+      const blob = new Blob(chunks, { type: mimeType });
+      console.log('[Recording] Recording stopped in retry function, blob type:', blob.type, 'size:', blob.size);
+      
       recording.fileSize = blob.size;
       recording.duration = Date.now() - recording.startTime;
     };
@@ -133,7 +194,7 @@ export const startRecordingWithRetry = async (
     if (attempt < MAX_RETRIES) {
       // Wait for exponential backoff delay
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS[attempt]));
-      return startRecordingWithRetry(recording, stream, attempt + 1);
+      return startRecordingWithRetry(recording, stream, mimeType, attempt + 1);
     }
     
     // All retries failed

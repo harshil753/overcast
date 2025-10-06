@@ -18,17 +18,15 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useUserSession } from '../components/UserSessionProvider';
+import React, { useState, useEffect, useCallback } from 'react';
 import DownloadManager from '../components/DownloadManager';
 import { Recording } from '../../lib/types';
-import { getRecordings, cleanupExpiredRecordings } from '../../lib/storage-utils';
+import { getAllRecordings } from '../../lib/storage-utils';
 
 /**
  * Recordings page component
  */
 export default function RecordingsPage() {
-  const { session } = useUserSession();
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,28 +34,14 @@ export default function RecordingsPage() {
   /**
    * Load recordings from storage
    */
-  const loadRecordings = async () => {
+  const loadRecordings = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      if (!session?.sessionId) {
-        setRecordings([]);
-        return;
-      }
-
-      // Get all recordings for the current user
-      const userRecordings = getRecordings(session.sessionId);
+      // Get all recordings from localStorage
+      const userRecordings = getAllRecordings();
       setRecordings(userRecordings);
-
-      // Clean up expired recordings
-      const cleanupResult = cleanupExpiredRecordings(session.sessionId);
-      if (cleanupResult.removedCount > 0) {
-        console.log(`Cleaned up ${cleanupResult.removedCount} expired recordings`);
-        // Reload recordings after cleanup
-        const updatedRecordings = getRecordings(session.sessionId);
-        setRecordings(updatedRecordings);
-      }
 
     } catch (err) {
       console.error('Failed to load recordings:', err);
@@ -65,7 +49,7 @@ export default function RecordingsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   /**
    * Handle recording download start
@@ -93,7 +77,7 @@ export default function RecordingsPage() {
    */
   useEffect(() => {
     loadRecordings();
-  }, [session?.sessionId]);
+  }, [loadRecordings]);
 
   /**
    * Refresh recordings periodically
@@ -104,24 +88,10 @@ export default function RecordingsPage() {
     }, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(interval);
-  }, [session?.sessionId]);
+  }, [loadRecordings]);
 
-  if (!session) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Access Denied</h1>
-          <p className="text-gray-400 mb-6">Please log in to view your recordings.</p>
-          <a
-            href="/"
-            className="px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors"
-          >
-            Go to Lobby
-          </a>
-        </div>
-      </div>
-    );
-  }
+  // Allow access to recordings even without active session
+  // Recordings are stored locally and can be accessed by anyone on the device
 
   return (
     <div className="min-h-screen bg-black">
@@ -148,6 +118,22 @@ export default function RecordingsPage() {
             >
               Back to Lobby
             </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Format Information */}
+      <div className="bg-blue-900 border-b border-blue-700 px-6 py-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-start space-x-3">
+            <div className="text-blue-400 text-xl">ℹ️</div>
+            <div>
+              <h3 className="text-blue-200 font-medium mb-1">Recording Format</h3>
+              <p className="text-blue-300 text-sm">
+                Recordings are saved in WebM format with VP8 codec for reliable compatibility. 
+                WebM files can be played in Chrome, Firefox, Edge, and VLC Media Player. For Windows Media Player, use VLC instead.
+              </p>
+            </div>
           </div>
         </div>
       </div>

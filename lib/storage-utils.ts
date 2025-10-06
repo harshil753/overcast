@@ -159,6 +159,54 @@ export const getRecordings = (userId: string): Recording[] => {
 };
 
 /**
+ * Get all recordings from localStorage (regardless of user)
+ * @returns {Recording[]} Array of all recordings
+ */
+export const getAllRecordings = (): Recording[] => {
+  if (!isLocalStorageAvailable()) {
+    return [];
+  }
+  
+  try {
+    const allRecordings: Recording[] = [];
+    
+    // Iterate through all localStorage keys
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('overcast-recordings-')) {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const storedRecordings: StoredRecording[] = JSON.parse(stored);
+          
+          // Convert stored recordings back to Recording objects
+          const recordings = storedRecordings.map(stored => ({
+            id: stored.id,
+            classroomId: stored.classroomId,
+            userId: stored.userId,
+            startTime: stored.startTime,
+            endTime: stored.endTime,
+            duration: stored.duration,
+            status: stored.status,
+            fileName: stored.fileName,
+            fileSize: stored.fileSize,
+            ttl: stored.ttl,
+            retryCount: stored.retryCount,
+            errorMessage: stored.errorMessage,
+          }));
+          
+          allRecordings.push(...recordings);
+        }
+      }
+    }
+    
+    return allRecordings;
+  } catch (error) {
+    console.error('Failed to get all recordings:', error);
+    return [];
+  }
+};
+
+/**
  * Get recordings for a specific classroom
  * @param {string} userId - User ID
  * @param {string} classroomId - Classroom ID
